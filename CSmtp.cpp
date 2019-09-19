@@ -564,7 +564,7 @@ void CSmtp::Send()
 		for (FileId = 0; FileId < Attachments.size(); FileId++)
 		{
 			// opening the file:
-			hFile = fopen(Attachments[FileId].c_str(), "rb");
+			fopen_s(&hFile,Attachments[FileId].c_str(), "rb");
 			if (hFile == NULL)
 				throw ECSmtp(ECSmtp::FILE_NOT_EXIST);
 
@@ -659,19 +659,19 @@ void CSmtp::Send()
 			EncodedFileName += "?=";
 
 			snprintf(SendBuf, BUFFER_SIZE, "--%s\r\n", BOUNDARY_TEXT);
-			strcat(SendBuf, "Content-Type: application/x-msdownload; name=\"");
-			strcat(SendBuf, EncodedFileName.c_str());
-			strcat(SendBuf, "\"\r\n");
-			strcat(SendBuf, "Content-Transfer-Encoding: base64\r\n");
-			strcat(SendBuf, "Content-Disposition: attachment; filename=\"");
-			strcat(SendBuf, EncodedFileName.c_str());
-			strcat(SendBuf, "\"\r\n");
-			strcat(SendBuf, "\r\n");
+			strcat_s(SendBuf,BUFFER_SIZE,  "Content-Type: application/x-msdownload; name=\"");
+			strcat_s(SendBuf,BUFFER_SIZE,  EncodedFileName.c_str());
+			strcat_s(SendBuf,BUFFER_SIZE,  "\"\r\n");
+			strcat_s(SendBuf,BUFFER_SIZE,  "Content-Transfer-Encoding: base64\r\n");
+			strcat_s(SendBuf,BUFFER_SIZE,  "Content-Disposition: attachment; filename=\"");
+			strcat_s(SendBuf,BUFFER_SIZE,  EncodedFileName.c_str());
+			strcat_s(SendBuf,BUFFER_SIZE,  "\"\r\n");
+			strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
 
 			SendData(pEntry);
 
 			// opening the file:
-			hFile = fopen(Attachments[FileId].c_str(), "rb");
+			fopen_s(&hFile,Attachments[FileId].c_str(), "rb");
 			if (hFile == NULL)
 				throw ECSmtp(ECSmtp::FILE_NOT_EXIST);
 
@@ -684,9 +684,13 @@ void CSmtp::Send()
 			for (i = 0; i < FileSize / 54 + 1; i++)
 			{
 				res = fread(FileBuf, sizeof(char), 54, hFile);
-				MsgPart ? strcat(SendBuf, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str())
-					: strcpy(SendBuf, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str());
-				strcat(SendBuf, "\r\n");
+				if (MsgPart) {
+					strcat_s(SendBuf,BUFFER_SIZE, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str());
+				}
+				else {
+					 strcpy_s(SendBuf, BUFFER_SIZE, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str());
+				}
+				strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
 				MsgPart += res + 2;
 				if (MsgPart >= BUFFER_SIZE / 2)
 				{ // sending part of the message
@@ -1171,20 +1175,20 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 				else snprintf(SendBuf, BUFFER_SIZE, "username=\"%s\"", m_sLogin.c_str());
 				if (!realm.empty()) {
 					snprintf(RecvBuf, BUFFER_SIZE, ",realm=\"%s\"", realm.c_str());
-					strcat(SendBuf, RecvBuf);
+					strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				}
 				snprintf(RecvBuf, BUFFER_SIZE, ",nonce=\"%s\"", nonce.c_str());
-				strcat(SendBuf, RecvBuf);
+				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				snprintf(RecvBuf, BUFFER_SIZE, ",nc=%s", nc);
-				strcat(SendBuf, RecvBuf);
+				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				snprintf(RecvBuf, BUFFER_SIZE, ",cnonce=\"%s\"", cnonce);
-				strcat(SendBuf, RecvBuf);
+				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				snprintf(RecvBuf, BUFFER_SIZE, ",digest-uri=\"%s\"", uri.c_str());
-				strcat(SendBuf, RecvBuf);
+				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				snprintf(RecvBuf, BUFFER_SIZE, ",response=%s", decoded_challenge.c_str());
-				strcat(SendBuf, RecvBuf);
+				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				snprintf(RecvBuf, BUFFER_SIZE, ",qop=%s", qop.c_str());
-				strcat(SendBuf, RecvBuf);
+				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
 				unsigned char* ustrDigest = CharToUnsignedChar(SendBuf);
 				encoded_challenge = base64_encode(ustrDigest, strlen(SendBuf));
 				delete[] ustrDigest;
@@ -1275,11 +1279,11 @@ void CSmtp::FormatHeader(char* header)
 	std::string cc;
 	std::string bcc;
 	time_t rawtime;
-	struct tm* timeinfo;
+	struct tm timeinfo;
 
 	// date/time check
 	if (time(&rawtime) > 0)
-		timeinfo = localtime(&rawtime);
+		localtime_s(&timeinfo, &rawtime);
 	else
 		throw ECSmtp(ECSmtp::TIME_ERROR);
 
@@ -1313,118 +1317,118 @@ void CSmtp::FormatHeader(char* header)
 	}
 
 	// Date: <SP> <dd> <SP> <mon> <SP> <yy> <SP> <hh> ":" <mm> ":" <ss> <SP> <zone> <CRLF>
-	snprintf(header, BUFFER_SIZE, "Date: %d %s %d %d:%d:%d\r\n", timeinfo->tm_mday,
-		month[timeinfo->tm_mon], timeinfo->tm_year + 1900, timeinfo->tm_hour,
-		timeinfo->tm_min, timeinfo->tm_sec);
+	snprintf(header, BUFFER_SIZE, "Date: %d %s %d %d:%d:%d\r\n", timeinfo.tm_mday,
+		month[timeinfo.tm_mon], timeinfo.tm_year + 1900, timeinfo.tm_hour,
+		timeinfo.tm_min, timeinfo.tm_sec);
 
 	// From: <SP> <sender>  <SP> "<" <sender-email> ">" <CRLF>
 	if (!m_sMailFrom.size()) throw ECSmtp(ECSmtp::UNDEF_MAIL_FROM);
 
-	strcat(header, "From: ");
-	if (m_sNameFrom.size()) strcat(header, m_sNameFrom.c_str());
+	strcat_s(header, BUFFER_SIZE,  "From: ");
+	if (m_sNameFrom.size()) strcat_s(header, BUFFER_SIZE,  m_sNameFrom.c_str());
 
-	strcat(header, " <");
-	strcat(header, m_sMailFrom.c_str());
-	strcat(header, ">\r\n");
+	strcat_s(header, BUFFER_SIZE,  " <");
+	strcat_s(header, BUFFER_SIZE,  m_sMailFrom.c_str());
+	strcat_s(header, BUFFER_SIZE,  ">\r\n");
 
 	// X-Mailer: <SP> <xmailer-app> <CRLF>
 	if (m_sXMailer.size())
 	{
-		strcat(header, "X-Mailer: ");
-		strcat(header, m_sXMailer.c_str());
-		strcat(header, "\r\n");
+		strcat_s(header, BUFFER_SIZE,  "X-Mailer: ");
+		strcat_s(header, BUFFER_SIZE,  m_sXMailer.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
 	}
 
 	// Reply-To: <SP> <reverse-path> <CRLF>
 	if (m_sReplyTo.size())
 	{
-		strcat(header, "Reply-To: ");
-		strcat(header, m_sReplyTo.c_str());
-		strcat(header, "\r\n");
+		strcat_s(header, BUFFER_SIZE,  "Reply-To: ");
+		strcat_s(header, BUFFER_SIZE,  m_sReplyTo.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
 	}
 
 	// Disposition-Notification-To: <SP> <reverse-path or sender-email> <CRLF>
 	if (m_bReadReceipt)
 	{
-		strcat(header, "Disposition-Notification-To: ");
-		if (m_sReplyTo.size()) strcat(header, m_sReplyTo.c_str());
-		else strcat(header, m_sNameFrom.c_str());
-		strcat(header, "\r\n");
+		strcat_s(header, BUFFER_SIZE,  "Disposition-Notification-To: ");
+		if (m_sReplyTo.size()) strcat_s(header, BUFFER_SIZE,  m_sReplyTo.c_str());
+		else strcat_s(header, BUFFER_SIZE,  m_sNameFrom.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
 	}
 
 	// X-Priority: <SP> <number> <CRLF>
 	switch (m_iXPriority)
 	{
 	case XPRIORITY_HIGH:
-		strcat(header, "X-Priority: 2 (High)\r\n");
+		strcat_s(header, BUFFER_SIZE,  "X-Priority: 2 (High)\r\n");
 		break;
 	case XPRIORITY_NORMAL:
-		strcat(header, "X-Priority: 3 (Normal)\r\n");
+		strcat_s(header, BUFFER_SIZE,  "X-Priority: 3 (Normal)\r\n");
 		break;
 	case XPRIORITY_LOW:
-		strcat(header, "X-Priority: 4 (Low)\r\n");
+		strcat_s(header, BUFFER_SIZE,  "X-Priority: 4 (Low)\r\n");
 		break;
 	default:
-		strcat(header, "X-Priority: 3 (Normal)\r\n");
+		strcat_s(header, BUFFER_SIZE,  "X-Priority: 3 (Normal)\r\n");
 	}
 
 	// To: <SP> <remote-user-mail> <CRLF>
-	strcat(header, "To: ");
-	strcat(header, to.c_str());
-	strcat(header, "\r\n");
+	strcat_s(header, BUFFER_SIZE,  "To: ");
+	strcat_s(header, BUFFER_SIZE,  to.c_str());
+	strcat_s(header, BUFFER_SIZE,  "\r\n");
 
 	// Cc: <SP> <remote-user-mail> <CRLF>
 	if (CCRecipients.size())
 	{
-		strcat(header, "Cc: ");
-		strcat(header, cc.c_str());
-		strcat(header, "\r\n");
+		strcat_s(header, BUFFER_SIZE,  "Cc: ");
+		strcat_s(header, BUFFER_SIZE,  cc.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
 	}
 
 	if (BCCRecipients.size())
 	{
-		strcat(header, "Bcc: ");
-		strcat(header, bcc.c_str());
-		strcat(header, "\r\n");
+		strcat_s(header, BUFFER_SIZE,  "Bcc: ");
+		strcat_s(header, BUFFER_SIZE,  bcc.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
 	}
 
 	// Subject: <SP> <subject-text> <CRLF>
 	if (!m_sSubject.size())
-		strcat(header, "Subject:  ");
+		strcat_s(header, BUFFER_SIZE,  "Subject:  ");
 	else
 	{
-		strcat(header, "Subject: ");
-		strcat(header, m_sSubject.c_str());
+		strcat_s(header, BUFFER_SIZE,  "Subject: ");
+		strcat_s(header, BUFFER_SIZE,  m_sSubject.c_str());
 	}
-	strcat(header, "\r\n");
+	strcat_s(header, BUFFER_SIZE,  "\r\n");
 
 	// MIME-Version: <SP> 1.0 <CRLF>
-	strcat(header, "MIME-Version: 1.0\r\n");
+	strcat_s(header, BUFFER_SIZE, "MIME-Version: 1.0\r\n");
 	if (!Attachments.size())
 	{ // no attachments
-		if (m_bHTML) strcat(header, "Content-Type: text/html; charset=\"");
-		else strcat(header, "Content-type: text/plain; charset=\"");
-		strcat(header, m_sCharSet.c_str());
-		strcat(header, "\"\r\n");
-		strcat(header, "Content-Transfer-Encoding: 7bit\r\n");
-		strcat(SendBuf, "\r\n");
+		if (m_bHTML) strcat_s(header, BUFFER_SIZE,  "Content-Type: text/html; charset=\"");
+		else strcat_s(header, BUFFER_SIZE,  "Content-type: text/plain; charset=\"");
+		strcat_s(header, BUFFER_SIZE,  m_sCharSet.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\"\r\n");
+		strcat_s(header, BUFFER_SIZE,  "Content-Transfer-Encoding: 7bit\r\n");
+		strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
 	}
 	else
 	{ // there is one or more attachments
-		strcat(header, "Content-Type: multipart/mixed; boundary=\"");
-		strcat(header, BOUNDARY_TEXT);
-		strcat(header, "\"\r\n");
-		strcat(header, "\r\n");
+		strcat_s(header, BUFFER_SIZE,  "Content-Type: multipart/mixed; boundary=\"");
+		strcat_s(header, BUFFER_SIZE,  BOUNDARY_TEXT);
+		strcat_s(header, BUFFER_SIZE,  "\"\r\n");
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
 		// first goes text message
-		strcat(SendBuf, "--");
-		strcat(SendBuf, BOUNDARY_TEXT);
-		strcat(SendBuf, "\r\n");
-		if (m_bHTML) strcat(SendBuf, "Content-type: text/html; charset=");
-		else strcat(SendBuf, "Content-type: text/plain; charset=");
-		strcat(header, m_sCharSet.c_str());
-		strcat(header, "\r\n");
-		strcat(SendBuf, "Content-Transfer-Encoding: 7bit\r\n");
-		strcat(SendBuf, "\r\n");
+		strcat_s(SendBuf,BUFFER_SIZE,  "--");
+		strcat_s(SendBuf,BUFFER_SIZE,  BOUNDARY_TEXT);
+		strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
+		if (m_bHTML) strcat_s(SendBuf,BUFFER_SIZE,  "Content-type: text/html; charset=");
+		else strcat_s(SendBuf,BUFFER_SIZE,  "Content-type: text/plain; charset=");
+		strcat_s(header, BUFFER_SIZE,  m_sCharSet.c_str());
+		strcat_s(header, BUFFER_SIZE,  "\r\n");
+		strcat_s(SendBuf,BUFFER_SIZE,  "Content-Transfer-Encoding: 7bit\r\n");
+		strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
 	}
 
 	// done

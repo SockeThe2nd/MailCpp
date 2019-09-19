@@ -275,7 +275,7 @@ char* MD5::hex_digest() {
 	}
 
 	for (i = 0; i < 16; i++)
-		sprintf(s + i * 2, "%02x", digest[i]);
+		sprintf_s(s + i * 2,32, "%02x", digest[i]);
 
 	s[32] = '\0';
 
