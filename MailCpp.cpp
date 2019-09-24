@@ -7,30 +7,62 @@ int main()
 
 	try
 	{
+		// Mailer Instanz erstellen
 		CSmtp mail;
 
-		mail.SetSMTPServer("smtp.gmx.net", 587);
+		// SMTP-server und Port setzen
+		mail.SetSMTPServer("smtp.web.de", 587);
+		/* 
+		Verschluesselung auswaehlen:
+		NO_SECURITY,
+		USE_TLS,
+		USE_SSL,
+		DO_NOT_SET
+		 */
 		mail.SetSecurityType(USE_TLS);
 
-		mail.SetLogin("roland.paltz@gmx.net");
-		mail.SetPassword("pass");
-		mail.SetSenderName("User");
-		mail.SetSenderMail("roland.paltz@gmx.net");
-		mail.SetReplyTo("roland.paltz@gmx.net");
-		mail.SetSubject("The message");
-		mail.AddRecipient("roland.paltz@gmx.net");
-		mail.SetXPriority(XPRIORITY_NORMAL);
-		//mail.SetXMailer("The Bat! (v3.02) Professional");
-		mail.AddMsgLine("Hello,");
-		mail.AddMsgLine("");
-		mail.AddMsgLine("...");
-		mail.AddMsgLine("How are you today?");
-		mail.AddMsgLine("");
-		mail.AddMsgLine("Regards");
+		// Benutzername angeben
+		mail.SetLogin("afvvsgvfdtherwgk@web.de");
+		// Passwort eingeben
+		mail.SetPassword("PASSWORT HIER");
+		
+		// Sendername
+		mail.SetSenderName("Max Muster");
+		// Senderadresse, meist gleich dem Benutzername
+		mail.SetSenderMail("afvvsgvfdtherwgk@web.de");
+		// Antwortadresse setzen
+		mail.SetReplyTo("afvvsgvfdtherwgk@web.de");
+		// Betreff setzen
+		mail.SetSubject("Testnachricht MailCpp");
 
+		// Empfaenger hinzuf�gen
+		mail.AddRecipient("roland.paltz@gmx.net");
+
+		/*
+		Prioritaet setzen. Wird nicht von allen Mailclients behandelt
+		XPRIORITY_HIGH,
+		XPRIORITY_NORMAL,
+		XPRIORITY_LOW
+		*/
+		mail.SetXPriority(XPRIORITY_NORMAL);
+
+		/*
+		Nachricht zeilenweise einfuegen
+		*/
+		mail.AddMsgLine("Hallo,");
+		mail.AddMsgLine("");
+		mail.AddMsgLine("Dies ist ein Test.");
+		mail.AddMsgLine("Hier folgen noch ein paar weitere Zeilen");
+		mail.AddMsgLine("");
+		mail.AddMsgLine("Adios");
+
+		/*
+		Anhang angeben. Datei wird base64 encoded angehangen. 
+		Nur der Dateipfad wird ben�tigt
+		*/
 		mail.AddAttachment("bitmap1.bmp");
-		//mail.AddAttachment("c:\\test2.exe");
-		//mail.AddAttachment("c:\\test3.txt");
+
+		// Mail senden
 		mail.Send();
 	}
 	catch (ECSmtp e)
