@@ -35,8 +35,8 @@ int main()
 		// Betreff setzen
 		mail.SetSubject("Testnachricht MailCpp");
 
-		// Empfaenger hinzuf�gen
-		mail.AddRecipient("roland.paltz@gmx.net");
+		// Empfaenger hinzufuegen
+		mail.AddRecipient("EMPFAENGERMAIL HIER");
 
 		/*
 		Prioritaet setzen. Wird nicht von allen Mailclients behandelt
@@ -58,7 +58,7 @@ int main()
 
 		/*
 		Anhang angeben. Datei wird base64 encoded angehangen. 
-		Nur der Dateipfad wird ben�tigt
+		Nur der Dateipfad wird benoetigt
 		*/
 		mail.AddAttachment("bitmap1.bmp");
 
