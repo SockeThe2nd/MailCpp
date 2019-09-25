@@ -43,9 +43,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="MailCpp.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
@@ -54,5 +51,8 @@
     <Image Include="bitmap1.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
