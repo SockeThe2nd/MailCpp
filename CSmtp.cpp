@@ -1,105 +1,19 @@
-////////////////////////////////////////////////////////////////////////////////
-// Original class CFastSmtp written by 
-// christopher w. backen <immortal@cox.net>
-// More details at: http://www.codeproject.com/KB/IP/zsmtp.aspx
-// 
-// Modifications introduced by Jakub Piwowarczyk:
-// 1. name of the class and functions
-// 2. new functions added: SendData,ReceiveData and more
-// 3. authentication added
-// 4. attachments added
-// 5 .comments added
-// 6. DELAY_IN_MS removed (no delay during sending the message)
-// 7. non-blocking mode
-// More details at: http://www.codeproject.com/KB/mcpp/CSmtp.aspx
+ï»¿////////////////////////////////////////////////////////////////////////////////
+// SMTP Class
 ////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
-// SSL/TLS support added by John Tang by making use of OpenSSL: http://www.openssl.org/ 
-// More details at: http://www.codeproject.com/KB/IP/smtp_ssl.aspx
-//
-// PLAIN, CRAM-MD5 and DIGESTMD5 authentication added by David Johns
-//
-// Revision History:
-// - Version 2.4: Updated with fixes reported as of 22 Oct 2015
-//     > Fixed issues with files being left opened and buffer not being deleted if an error occurs as discussed here: http://www.codeproject.com/Messages/4651730/Re-File-attachment.aspx
-//       - Thanks to Josep Solà
-//     > Fixed issue with opening attachments as discussed here: http://www.codeproject.com/Messages/4640325/File-path-mistakenly-ommitted-from-file-name-when-.aspx
-//       - Thanks to Graham
-//     > Fixed potential memory leak as discussed here: http://www.codeproject.com/Messages/5010012/Memory-leaks.aspx
-//       - Thanks to LahPo
-//     > Made total message size limit larger as recommended here: http://stackoverflow.com/questions/22426686/csmtp-wont-send-an-e-mail-attachment-but-without-the-attachment-it-works-fine/28333737#28333737
-//       - Thanks to Stanislav
-//     > Fixed an issue with incomplete attachment file paths as discussed here: http://www.codeproject.com/Messages/5127588/Re-Attachment-does-not-come.aspx
-//       - Thanks to Member 11508846 and Member 11887128
-// - Version 2.3: Updated with fixes reported as of 17 Aug 2013
-//     > Removed Bcc header so that recipients don't see who it was Bcc'd to as discussed here: http://www.codeproject.com/Messages/4633562/Bcc-and-mail-header.aspx
-//       - Thanks to o15s19
-//     > Fixed problem with attaching files that have unicode or reserved character filenames as discussed here: http://www.codeproject.com/Messages/4610174/Re-About-snprintf-FileName-255-Attachments-FileId-.aspx
-//       - Thanks to uni_gauldoth
-//     > Improved the method used for checking attachment file sizes as discussed here: http://www.codeproject.com/Messages/4562481/retreiving-file-size-for-attachments.aspx
-//       - Thanks to GKarRacer
-//     > Added #include <unistd.h> for linux compiles, which was required for gethostname as discussed here: http://www.codeproject.com/Messages/4551908/Works-on-Linux-CSmtp-cpp-needed-sharpinclude-unist.aspx
-//       - Thanks to jim fred
-// - Version 2.2: Updated with fixes reported as of 6 May 2013
-//     > Fixed check on MsgBody.size() as discussed here: http://www.codeproject.com/Messages/4555663/Incorrect-range-check.aspx
-//       - Thanks to GKarRacer
-//     > Moved memory allocation and checking if attachments could be opened to before the MAIL command is
-//       issued to avoid throwing errors in a place where you can't terminate the connection gracefully without
-//       the email being sent corrupted
-//     > Changed all sprintf calls to snprintf to add greater security. #define'd snprintf to sprintf_s for
-//       MSVC.  Also changed all strcpy to snprintf since that is the only way to use a secure function that
-//       is portable between standard C and MSVC since MS re-ordered the arguments between strcpy and
-//       strcpy_s
-//     > Fixed issue with SayQuit that could lead to infinite loop discussed here: http://www.codeproject.com/Messages/4451901/exception-in-SayQuit-could-lead-to-infinite-loop.aspx
-//       - Thanks to jcyangzh!
-//     > Fixed issue with AUTH PLAIN implementation discussed here: http://www.codeproject.com/Messages/4433069/looks-like-a-bug-in-plain-auth.aspx
-//       - Thanks to sbrytskyy!
-// - Version 2.1: Updated with fixes reported as of 26 Mar 2012
-//     > Fixed issue in main.cpp with referring to USE_TLS in the wrong scope discussed here: http://www.codeproject.com/Messages/4151405/Re-USE_SSL-no-member-of-CSmtp.aspx
-//       - Thanks to Alan P Brown!
-//     > Added modifications to allow it to compile in Debian Linux discussed here: http://www.codeproject.com/Messages/4132697/linux-port-patch.aspx
-//       - Thanks to Oleg Dolgov!
-//     > Added ability to change the character set, inspired by this post: http://www.codeproject.com/Messages/4238701/Re-The-subject-contains-the-Chinese-letters-could-.aspx
-//       - Thanks to LeonHuang0726 and John TWC for the suggestion!
-//     > Added ability to request a read receipt by calling SetReadReceipt as proposed here: http://www.codeproject.com/Messages/3938944/Disposition-Notification-To.aspx
-//       - Thanks to Gospa for the suggestion!
-//     > Added check for Linux when adding paths of attachments in the MIME header as suggested here: http://www.codeproject.com/Messages/4357144/portability-bug-w-attachment-name.aspx
-//       - Thanks to Spike!
-//     > Switched method of setting private std::string variables to use the = operator as suggested here: http://www.codeproject.com/Messages/4356937/portability-bugs-w-std-string-and-exceptions.aspx
-//       - Thanks to Spike!
-//     > Added SetLocalHostName function proposed here: http://www.codeproject.com/Messages/4092347/bug-fixes-GetLocalHostName-Send.aspx
-//       - Thanks to jerko!
-//     > Added the modifications to allow it to compile in Linux described here: http://www.codeproject.com/Messages/3878620/My-vote-of-5.aspx
-//       - Thanks to korisk!
-//     > Added the fix that corrects behavior when m_sNameFrom is empty described here: http://www.codeproject.com/Messages/4196071/Bug-Mail-sent-by-mail-domain-com.aspx
-//       - Thanks to agenua.grupoi68!
-// - Version 2.0: Updated to all fixes reported as of 23 Jun 2011:
-//     > Added the m_bAuthenticate member variable to be able to disable authentication
-//       even though it may be supported by the server. It defaults to true so if it is
-//       not set the library will act as it would have before the addition.
-//     > Added the ability to pass the security type, m_type, the new m_Authenticate flag,
-//       the login and password into the ConnectRemoteServer function. If these new arguments
-//       are not included in the call the function will work as it did before.
-//     > Added the ability to pass the new m_Authenticate flag into the SetSMTPServer function.
-//       If not provided, the function will act as it would before the addition.
-//     > Added fix described here: http://www.codeproject.com/Messages/3681792/Bug-when-reading-answer.aspx
-//       - Thanks to Martin Kjallman!
-//     > Added fixes described here: http://www.codeproject.com/Messages/3707662/Mistakes.aspx
-//       - Thanks to Karpov Andrey!
-//     > Added fixes described here: http://www.codeproject.com/Messages/3587166/Re-Possible-Solution-To-Misc-EHLO-Errors.aspx
-//       - Thanks to Jakub Piwowarczyk!
-// - Version 1.9: Started with Revion 6 in code project http://www.codeproject.com/script/Articles/ListVersions.aspx?aid=98355
-////////////////////////////////////////////////////////////////////////////////
-
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
 
 #include "CSmtp.h"
+
 #include "base64.h"
+
 #include "openssl/err.h"
+#include "openssl/md5.h"
 
 #include <cassert>
-
 
 Command_Entry command_list[] =
 {
@@ -121,6 +35,53 @@ Command_Entry command_list[] =
 	{command_STARTTLS,      5 * 60,  5 * 60,  220, ECSmtp::COMMAND_EHLO_STARTTLS}
 };
 
+Smtp_Content_Type Smtp_content_list[] =
+{
+	{".bmp", "image/bmp"},
+	{".gif", "image/gif"},
+	{".jpeg", "image/jpeg"},
+	{".jpg", "image/jpeg"},
+	{".png", "image/png"},
+	{".tif", "image/tiff"},
+	{".tiff", "image/tiff"},
+	{".rtf", "application/rtf"},
+	{".doc", "application/msword"},
+	{".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+	{".pdf", "application/pdf"},
+	{".ppt", "application/vnd.ms-powerpoint"},
+	{".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+	{".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+	{".xls", "application/vnd.ms-excel"},
+	{".csv", "text/csv"},
+	{".xml", "text/xml"},
+	{".txt", "text/plain"},
+	{".zip", "application/zip"},
+	{".ogg", "application/ogg"},
+	{".mp3", "audio/mpeg"},
+	{".wma", "audio/x-ms-wma"},
+	{".wav", "audio/x-wav"},
+	{".wmv", "audio/x-ms-wmv"},
+	{".swf", "application/x-shockwave-flash"},
+	{".avi", "video/avi"},
+	{".mp4", "video/mp4"},
+	{".mpeg", "video/mpeg"},
+	{".mpg", "video/mpeg"},
+	{".qt", "video/quicktime"}
+};
+
+const char* Smtp_FindContentType(char* FileExt)
+{
+	for (size_t i = 0; i < sizeof(Smtp_content_list) / sizeof(Smtp_content_list[0]); ++i)
+	{
+		if (strcmp(Smtp_content_list[i].FileExt, FileExt) == 0)
+		{
+			return Smtp_content_list[i].FileExtContent;
+		}
+	}
+
+	return "application/octet-stream";
+}
+
 Command_Entry* FindCommandEntry(SMTP_COMMAND command)
 {
 	Command_Entry* pEntry = NULL;
@@ -140,13 +101,18 @@ Command_Entry* FindCommandEntry(SMTP_COMMAND command)
 bool IsKeywordSupported(const char* response, const char* keyword)
 {
 	assert(response != NULL && keyword != NULL);
+
 	if (response == NULL || keyword == NULL)
 		return false;
-	int res_len = strlen(response);
-	int key_len = strlen(keyword);
+
+	int res_len = static_cast<int>(strlen(response));
+	int key_len = static_cast<int>(strlen(keyword));
+
 	if (res_len < key_len)
 		return false;
+
 	int pos = 0;
+
 	for (; pos < res_len - key_len + 1; ++pos)
 	{
 		if (_strnicmp(keyword, response + pos, key_len) == 0)
@@ -175,26 +141,8 @@ bool IsKeywordSupported(const char* response, const char* keyword)
 			}
 		}
 	}
+
 	return false;
-}
-
-unsigned char* CharToUnsignedChar(const char* strIn)
-{
-	unsigned char* strOut;
-
-	unsigned long length,
-		i;
-
-
-	length = strlen(strIn);
-
-	strOut = new unsigned char[length + 1];
-	if (!strOut) return NULL;
-
-	for (i = 0; i < length; i++) strOut[i] = (unsigned char)strIn[i];
-	strOut[length] = '\0';
-
-	return strOut;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -203,12 +151,8 @@ unsigned char* CharToUnsignedChar(const char* strIn)
 //   ARGUMENTS: none
 // USES GLOBAL: none
 // MODIFIES GL: m_iXPriority, m_iSMTPSrvPort, RecvBuf, SendBuf
-//     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
+//     RETURNS: none					
 ////////////////////////////////////////////////////////////////////////////////
-
 CSmtp::CSmtp()
 {
 	hSocket = INVALID_SOCKET;
@@ -217,27 +161,39 @@ CSmtp::CSmtp()
 	m_iSMTPSrvPort = 0;
 	m_bAuthenticate = true;
 
-#ifndef LINUX
 	// Initialize WinSock
 	WSADATA wsaData;
 	WORD wVer = MAKEWORD(2, 2);
+
 	if (WSAStartup(wVer, &wsaData) != NO_ERROR)
 		throw ECSmtp(ECSmtp::WSA_STARTUP);
+
 	if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2)
 	{
 		WSACleanup();
 		throw ECSmtp(ECSmtp::WSA_VER);
 	}
-#endif
 
-	char hostname[255];
-	if (gethostname((char*)& hostname, 255) == SOCKET_ERROR) throw ECSmtp(ECSmtp::WSA_HOSTNAME);
+	char* hostname;
+
+	if ((hostname = new char[MAX_PATH]) == NULL)
+		throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
+
+	if (gethostname(hostname, MAX_PATH) == SOCKET_ERROR)
+		throw ECSmtp(ECSmtp::WSA_HOSTNAME);
+
 	m_sLocalHostName = hostname;
+
+	delete[] hostname;
+	hostname = NULL;
 
 	if ((RecvBuf = new char[BUFFER_SIZE]) == NULL)
 		throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
 
 	if ((SendBuf = new char[BUFFER_SIZE]) == NULL)
+		throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
+
+	if ((szMsgId = new char[BUFFER_MSGID_SIZE]) == NULL)
 		throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
 
 	m_type = NO_SECURITY;
@@ -246,7 +202,14 @@ CSmtp::CSmtp()
 	m_bHTML = false;
 	m_bReadReceipt = false;
 
-	m_sCharSet = "UTF-8";
+	m_sCharSet = "ISO-8859-15";
+	m_sCharEncoding = "8bit";
+
+	std::transform(m_sCharSet.begin(), m_sCharSet.end(), m_sCharSet.begin(), ::toupper);
+
+	m_sXMailer = "v5.0";
+
+	dwNumChar = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -255,31 +218,50 @@ CSmtp::CSmtp()
 //   ARGUMENTS: none
 // USES GLOBAL: RecvBuf, SendBuf
 // MODIFIES GL: RecvBuf, SendBuf
-//     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
+//     RETURNS: none						
 ////////////////////////////////////////////////////////////////////////////////
 CSmtp::~CSmtp()
 {
-	if (m_bConnected) DisconnectRemoteServer();
+	if (m_bConnected)
+		DisconnectRemoteServer();
 
-	if (SendBuf)
+	if (FileBuf != NULL)
+	{
+		delete[] FileBuf;
+		FileBuf = NULL;
+	}
+
+	if (FileName != NULL)
+	{
+		delete[] FileName;
+		FileName = NULL;
+	}
+
+	if (hFile != NULL)
+	{
+		fclose(hFile);
+	}
+
+	if (SendBuf != NULL)
 	{
 		delete[] SendBuf;
 		SendBuf = NULL;
 	}
-	if (RecvBuf)
+
+	if (RecvBuf != NULL)
 	{
 		delete[] RecvBuf;
 		RecvBuf = NULL;
 	}
 
-	CleanupOpenSSL();
+	if (szMsgId != NULL)
+	{
+		delete[] szMsgId;
+		szMsgId = NULL;
+	}
 
-#ifndef LINUX
+	CleanupOpenSSL();
 	WSACleanup();
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -288,15 +270,11 @@ CSmtp::~CSmtp()
 //   ARGUMENTS: const char *Path - name of attachment added
 // USES GLOBAL: Attachments
 // MODIFIES GL: Attachments
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void					
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::AddAttachment(const char* Path)
+void CSmtp::AddAttachment(const char *Path)
 {
-	assert(Path);
-	Attachments.insert(Attachments.end(), Path);
+	Attachments.push_back(Path);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -306,22 +284,23 @@ void CSmtp::AddAttachment(const char* Path)
 //              const char *name - name of the recipient
 // USES GLOBAL: Recipients
 // MODIFIES GL: Recipients
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void					
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::AddRecipient(const char* email, const char* name)
+void CSmtp::AddRecipient(const char *email, const char *name)
 {
 	if (!email)
 		throw ECSmtp(ECSmtp::UNDEF_RECIPIENT_MAIL);
 
 	Recipient recipient;
-	recipient.Mail = email;
-	if (name != NULL) recipient.Name = name;
-	else recipient.Name.empty();
 
-	Recipients.insert(Recipients.end(), recipient);
+	recipient.Mail = email;
+
+	if (name != NULL)
+		recipient.Name = name;
+	else
+		recipient.Name.clear();
+
+	Recipients.push_back(recipient);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -331,22 +310,23 @@ void CSmtp::AddRecipient(const char* email, const char* name)
 //              const char *name - name of the ccc-recipient
 // USES GLOBAL: CCRecipients
 // MODIFIES GL: CCRecipients
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void						
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::AddCCRecipient(const char* email, const char* name)
+void CSmtp::AddCCRecipient(const char *email, const char *name)
 {
 	if (!email)
 		throw ECSmtp(ECSmtp::UNDEF_RECIPIENT_MAIL);
 
 	Recipient recipient;
-	recipient.Mail = email;
-	if (name != NULL) recipient.Name = name;
-	else recipient.Name.empty();
 
-	CCRecipients.insert(CCRecipients.end(), recipient);
+	recipient.Mail = email;
+
+	if (name != NULL)
+		recipient.Name = name;
+	else
+		recipient.Name.clear();
+
+	CCRecipients.push_back(recipient);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -356,22 +336,23 @@ void CSmtp::AddCCRecipient(const char* email, const char* name)
 //              const char *name - name of the bccc-recipient
 // USES GLOBAL: BCCRecipients
 // MODIFIES GL: BCCRecipients
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void							
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::AddBCCRecipient(const char* email, const char* name)
+void CSmtp::AddBCCRecipient(const char *email, const char *name)
 {
 	if (!email)
 		throw ECSmtp(ECSmtp::UNDEF_RECIPIENT_MAIL);
 
 	Recipient recipient;
-	recipient.Mail = email;
-	if (name != NULL) recipient.Name = name;
-	else recipient.Name.empty();
 
-	BCCRecipients.insert(BCCRecipients.end(), recipient);
+	recipient.Mail = email;
+
+	if (name != NULL)
+		recipient.Name = name;
+	else
+		recipient.Name.clear();
+
+	BCCRecipients.push_back(recipient);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -380,14 +361,11 @@ void CSmtp::AddBCCRecipient(const char* email, const char* name)
 //   ARGUMENTS: const char *Text - text of the new line
 // USES GLOBAL: MsgBody
 // MODIFIES GL: MsgBody
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void						
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::AddMsgLine(const char* Text)
 {
-	MsgBody.insert(MsgBody.end(), Text);
+	MsgBody.push_back(Text);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -396,15 +374,13 @@ void CSmtp::AddMsgLine(const char* Text)
 //   ARGUMENTS: unsigned int Line - line to be delete
 // USES GLOBAL: MsgBody
 // MODIFIES GL: MsgBody
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void						
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DelMsgLine(unsigned int Line)
 {
 	if (Line >= MsgBody.size())
 		throw ECSmtp(ECSmtp::OUT_OF_MSG_RANGE);
+
 	MsgBody.erase(MsgBody.begin() + Line);
 }
 
@@ -414,10 +390,7 @@ void CSmtp::DelMsgLine(unsigned int Line)
 //   ARGUMENTS: void
 // USES GLOBAL: Recipients
 // MODIFIES GL: Recipients
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void						
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DelRecipients()
 {
@@ -430,10 +403,7 @@ void CSmtp::DelRecipients()
 //   ARGUMENTS: void
 // USES GLOBAL: BCCRecipients
 // MODIFIES GL: BCCRecipients
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void					
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DelBCCRecipients()
 {
@@ -446,10 +416,7 @@ void CSmtp::DelBCCRecipients()
 //   ARGUMENTS: void
 // USES GLOBAL: CCRecipients
 // MODIFIES GL: CCRecipients
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void				
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DelCCRecipients()
 {
@@ -463,8 +430,6 @@ void CSmtp::DelCCRecipients()
 // USES GLOBAL: MsgBody
 // MODIFIES GL: MsgBody
 //     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-07-07
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DelMsgLines()
 {
@@ -477,10 +442,7 @@ void CSmtp::DelMsgLines()
 //   ARGUMENTS: void
 // USES GLOBAL: Attchments
 // MODIFIES GL: Attachments
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
+//     RETURNS: void							
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DelAttachments()
 {
@@ -488,41 +450,23 @@ void CSmtp::DelAttachments()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//        NAME: ModMsgLine
-// DESCRIPTION: Modifies a specific line of the message body
-//   ARGUMENTS: unsigned int Line - the line number to modify
-//              const char* Text - the new contents of the line
-// USES GLOBAL: MsgBody
-// MODIFIES GL: MsgBody
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-07-07
+//        NAME: AddBCCRecipient
+// DESCRIPTION: New bcc-recipient data is added i.e.: email and name. .
+//   ARGUMENTS: const char *email - mail of the bcc-recipient
+//              const char *name - name of the bccc-recipient
+// USES GLOBAL: BCCRecipients
+// MODIFIES GL: BCCRecipients, m_oError
+//     RETURNS: void					
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::ModMsgLine(unsigned int Line, const char* Text)
 {
-	if (Text)
+	if (Text != NULL)
 	{
 		if (Line >= MsgBody.size())
 			throw ECSmtp(ECSmtp::OUT_OF_MSG_RANGE);
+
 		MsgBody.at(Line) = std::string(Text);
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//        NAME: ClearMessage
-// DESCRIPTION: Clears the recipients and message body
-//   ARGUMENTS: none
-//     RETURNS: none
-//      AUTHOR: David Johns
-// AUTHOR/DATE: DRJ 2013-05-20
-////////////////////////////////////////////////////////////////////////////////
-void CSmtp::ClearMessage()
-{
-	DelRecipients();
-	DelBCCRecipients();
-	DelCCRecipients();
-	DelAttachments();
-	DelMsgLines();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -533,19 +477,13 @@ void CSmtp::ClearMessage()
 //              m_sPassword, m_sMailFrom, Recipients, CCRecipients,
 //              BCCRecipients, m_sMsgBody, Attachments, 
 // MODIFIES GL: SendBuf 
-//     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
+//     RETURNS: void					
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::Send()
 {
 	unsigned int i, rcpt_count, res, FileId;
-	char* FileBuf = NULL;
-	FILE* hFile = NULL;
 	unsigned long int FileSize, TotalSize, MsgPart;
-	string FileName, EncodedFileName;
-	string::size_type pos;
+	errno_t err;
 
 	// ***** CONNECTING TO SMTP SERVER *****
 
@@ -556,31 +494,122 @@ void CSmtp::Send()
 			throw ECSmtp(ECSmtp::WSA_INVALID_SOCKET);
 	}
 
-	try {
-		//Allocate memory
+	try
+	{
+		// Allocate Memory
 		if ((FileBuf = new char[55]) == NULL)
+			throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
+
+		if ((FileName = new char[MAX_PATH]) == NULL)
 			throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
 
 		//Check that any attachments specified can be opened
 		TotalSize = 0;
+
 		for (FileId = 0; FileId < Attachments.size(); FileId++)
 		{
-			// opening the file:
-			fopen_s(&hFile,Attachments[FileId].c_str(), "rb");
-			if (hFile == NULL)
-				throw ECSmtp(ECSmtp::FILE_NOT_EXIST);
+			sprintf_s(FileName, MAX_PATH, "%s", Attachments[FileId].c_str());
 
-			// checking file size:
+			// Opening the file:
+			err = fopen_s(&hFile, FileName, "rb");
+
+			// Error checking
+			if (err != NULL)
+			{
+				if (err == EPERM)
+					throw ECSmtp(ECSmtp::ERRNO_EPERM);
+				else if (err == ENOENT)
+					throw ECSmtp(ECSmtp::ERRNO_ENOENT);
+				else if (err == ESRCH)
+					throw ECSmtp(ECSmtp::ERRNO_ESRCH);
+				else if (err == EINTR)
+					throw ECSmtp(ECSmtp::ERRNO_EINTR);
+				else if (err == EIO)
+					throw ECSmtp(ECSmtp::ERRNO_EIO);
+				else if (err == ENXIO)
+					throw ECSmtp(ECSmtp::ERRNO_ENXIO);
+				else if (err == E2BIG)
+					throw ECSmtp(ECSmtp::ERRNO_E2BIG);
+				else if (err == ENOEXEC)
+					throw ECSmtp(ECSmtp::ERRNO_ENOEXEC);
+				else if (err == EBADF)
+					throw ECSmtp(ECSmtp::ERRNO_EBADF);
+				else if (err == ECHILD)
+					throw ECSmtp(ECSmtp::ERRNO_ECHILD);
+				else if (err == EAGAIN)
+					throw ECSmtp(ECSmtp::ERRNO_EAGAIN);
+				else if (err == ENOMEM)
+					throw ECSmtp(ECSmtp::ERRNO_ENOMEM);
+				else if (err == EACCES)
+					throw ECSmtp(ECSmtp::ERRNO_EACCES);
+				else if (err == EFAULT)
+					throw ECSmtp(ECSmtp::ERRNO_EFAULT);
+				else if (err == EBUSY)
+					throw ECSmtp(ECSmtp::ERRNO_EBUSY);
+				else if (err == EEXIST)
+					throw ECSmtp(ECSmtp::ERRNO_EEXIST);
+				else if (err == EXDEV)
+					throw ECSmtp(ECSmtp::ERRNO_EXDEV);
+				else if (err == ENODEV)
+					throw ECSmtp(ECSmtp::ERRNO_ENODEV);
+				else if (err == ENOTDIR)
+					throw ECSmtp(ECSmtp::ERRNO_ENOTDIR);
+				else if (err == EISDIR)
+					throw ECSmtp(ECSmtp::ERRNO_EISDIR);
+				else if (err == EINVAL)
+					throw ECSmtp(ECSmtp::ERRNO_EINVAL);
+				else if (err == ENFILE)
+					throw ECSmtp(ECSmtp::ERRNO_ENFILE);
+				else if (err == EMFILE)
+					throw ECSmtp(ECSmtp::ERRNO_EMFILE);
+				else if (err == ENOTTY)
+					throw ECSmtp(ECSmtp::ERRNO_ENOTTY);
+				else if (err == EFBIG)
+					throw ECSmtp(ECSmtp::ERRNO_EFBIG);
+				else if (err == ENOSPC)
+					throw ECSmtp(ECSmtp::ERRNO_ENOSPC);
+				else if (err == ESPIPE)
+					throw ECSmtp(ECSmtp::ERRNO_ESPIPE);
+				else if (err == EROFS)
+					throw ECSmtp(ECSmtp::ERRNO_EROFS);
+				else if (err == EMLINK)
+					throw ECSmtp(ECSmtp::ERRNO_EMLINK);
+				else if (err == EPIPE)
+					throw ECSmtp(ECSmtp::ERRNO_EPIPE);
+				else if (err == EDOM)
+					throw ECSmtp(ECSmtp::ERRNO_EDOM);
+				else if (err == ERANGE)
+					throw ECSmtp(ECSmtp::ERRNO_ERANGE);
+				else if (err == EDEADLK)
+					throw ECSmtp(ECSmtp::ERRNO_EDEADLK);
+				else if (err == ENAMETOOLONG)
+					throw ECSmtp(ECSmtp::ERRNO_ENAMETOOLONG);
+				else if (err == ENOLCK)
+					throw ECSmtp(ECSmtp::ERRNO_ENOLCK);
+				else if (err == ENOSYS)
+					throw ECSmtp(ECSmtp::ERRNO_ENOSYS);
+				else if (err == ENOTEMPTY)
+					throw ECSmtp(ECSmtp::ERRNO_ENOTEMPTY);
+				else if (err == EILSEQ)
+					throw ECSmtp(ECSmtp::ERRNO_EILSEQ);
+				else if (err == STRUNCATE)
+					throw ECSmtp(ECSmtp::ERRNO_STRUNCATE);
+				else
+					throw ECSmtp(ECSmtp::FILE_NOT_EXIST);
+			}
+
+			// Checking file size:
+			FileSize = 0;
+
 			fseek(hFile, 0, SEEK_END);
 			FileSize = ftell(hFile);
 			TotalSize += FileSize;
 
-			// sending the file:
-			if (TotalSize / 1024 > MSG_SIZE_IN_MB * 1024)
-				throw ECSmtp(ECSmtp::MSG_TOO_BIG);
-
 			fclose(hFile);
-			hFile = NULL;
+
+			// Check TotalSize
+			if ((TotalSize / 1024.) > (MSG_SIZE_IN_MB * 1024.))
+				throw ECSmtp(ECSmtp::MSG_TOO_BIG);
 		}
 
 		// ***** SENDING E-MAIL *****
@@ -588,145 +617,393 @@ void CSmtp::Send()
 		// MAIL <SP> FROM:<reverse-path> <CRLF>
 		if (!m_sMailFrom.size())
 			throw ECSmtp(ECSmtp::UNDEF_MAIL_FROM);
+
 		Command_Entry* pEntry = FindCommandEntry(command_MAILFROM);
-		snprintf(SendBuf, BUFFER_SIZE, "MAIL FROM:<%s>\r\n", m_sMailFrom.c_str());
+		sprintf_s(SendBuf, BUFFER_SIZE, "MAIL FROM:<%s>\r\n", m_sMailFrom.c_str());
 		SendData(pEntry);
 		ReceiveResponse(pEntry);
 
 		// RCPT <SP> TO:<forward-path> <CRLF>
-		if (!(rcpt_count = Recipients.size()))
+		if (!(rcpt_count = static_cast<unsigned int>(Recipients.size())))
 			throw ECSmtp(ECSmtp::UNDEF_RECIPIENTS);
+
 		pEntry = FindCommandEntry(command_RCPTTO);
+
 		for (i = 0; i < Recipients.size(); i++)
 		{
-			snprintf(SendBuf, BUFFER_SIZE, "RCPT TO:<%s>\r\n", (Recipients.at(i).Mail).c_str());
+			sprintf_s(SendBuf, BUFFER_SIZE, "RCPT TO:<%s>\r\n", (Recipients.at(i).Mail).c_str());
 			SendData(pEntry);
 			ReceiveResponse(pEntry);
 		}
 
 		for (i = 0; i < CCRecipients.size(); i++)
 		{
-			snprintf(SendBuf, BUFFER_SIZE, "RCPT TO:<%s>\r\n", (CCRecipients.at(i).Mail).c_str());
+			sprintf_s(SendBuf, BUFFER_SIZE, "RCPT TO:<%s>\r\n", (CCRecipients.at(i).Mail).c_str());
 			SendData(pEntry);
 			ReceiveResponse(pEntry);
 		}
 
 		for (i = 0; i < BCCRecipients.size(); i++)
 		{
-			snprintf(SendBuf, BUFFER_SIZE, "RCPT TO:<%s>\r\n", (BCCRecipients.at(i).Mail).c_str());
+			sprintf_s(SendBuf, BUFFER_SIZE, "RCPT TO:<%s>\r\n", (BCCRecipients.at(i).Mail).c_str());
 			SendData(pEntry);
 			ReceiveResponse(pEntry);
 		}
 
-		pEntry = FindCommandEntry(command_DATA);
 		// DATA <CRLF>
-		snprintf(SendBuf, BUFFER_SIZE, "DATA\r\n");
+		pEntry = FindCommandEntry(command_DATA);
+		strcpy_s(SendBuf, BUFFER_SIZE, "DATA\r\n");
 		SendData(pEntry);
 		ReceiveResponse(pEntry);
 
+		dwNumChar = 0;
+
+		// DATABLOCK
 		pEntry = FindCommandEntry(command_DATABLOCK);
-		// send header(s)
 		FormatHeader(SendBuf);
 		SendData(pEntry);
+		dwNumChar += strlen(SendBuf);
+
+		const char *ResultLine;
 
 		// send text message
 		if (GetMsgLines())
 		{
 			for (i = 0; i < GetMsgLines(); i++)
 			{
-				snprintf(SendBuf, BUFFER_SIZE, "%s\r\n", GetMsgLineText(i));
-				SendData(pEntry);
+				ResultLine = GetMsgLineText(i);
+				int dwSize = static_cast<int>(strlen(ResultLine));
+				int Offset = 0;
+
+				if (dwSize >= BUFFER_SIZE / 2)
+				{
+					int dwIndex = 0;
+
+					while (Offset < (dwSize - 1))
+					{
+						strncpy_s(SendBuf, BUFFER_SIZE, ResultLine + Offset, BUFFER_SIZE / 2);
+						SendBuf[BUFFER_SIZE / 2] = '\0';
+						SendData(pEntry);
+						dwNumChar += strlen(SendBuf);
+						Offset += BUFFER_SIZE / 2;
+					}
+
+					strcpy_s(SendBuf, BUFFER_SIZE, "\r\n");
+					SendData(pEntry);
+					dwNumChar += strlen(SendBuf);
+				}
+				else
+				{
+					sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", ResultLine);
+					SendData(pEntry);
+					dwNumChar += strlen(SendBuf);
+				}
 			}
 		}
 		else
 		{
-			snprintf(SendBuf, BUFFER_SIZE, "%s\r\n", " ");
+			sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", " ");
 			SendData(pEntry);
+			dwNumChar += strlen(SendBuf);
 		}
 
-		// next goes attachments (if they are)
-		for (FileId = 0; FileId < Attachments.size(); FileId++)
+		// send html text
+		if (m_bHTML)
 		{
-#ifndef LINUX
-			pos = Attachments[FileId].find_last_of("\\");
-#else
-			pos = Attachments[FileId].find_last_of("/");
-#endif
-			if (pos == string::npos) FileName = Attachments[FileId];
-			else FileName = Attachments[FileId].substr(pos + 1);
+			MsgBody.clear();
+			MsgBody.push_back(MsgBodyHTML.c_str());
 
-			//RFC 2047 - Use UTF-8 charset,base64 encode.
-			EncodedFileName = "=?UTF-8?B?";
-			EncodedFileName += base64_encode((unsigned char*)FileName.c_str(), FileName.size());
-			EncodedFileName += "?=";
+			sprintf_s(SendBuf, BUFFER_SIZE, "\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "--");
+			strcat_s(SendBuf, BUFFER_SIZE, SMTP_BOUNDARY_ALTERNATIVE);
+			strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
 
-			snprintf(SendBuf, BUFFER_SIZE, "--%s\r\n", BOUNDARY_TEXT);
-			strcat_s(SendBuf,BUFFER_SIZE,  "Content-Type: application/x-msdownload; name=\"");
-			strcat_s(SendBuf,BUFFER_SIZE,  EncodedFileName.c_str());
-			strcat_s(SendBuf,BUFFER_SIZE,  "\"\r\n");
-			strcat_s(SendBuf,BUFFER_SIZE,  "Content-Transfer-Encoding: base64\r\n");
-			strcat_s(SendBuf,BUFFER_SIZE,  "Content-Disposition: attachment; filename=\"");
-			strcat_s(SendBuf,BUFFER_SIZE,  EncodedFileName.c_str());
-			strcat_s(SendBuf,BUFFER_SIZE,  "\"\r\n");
-			strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "Content-Type: text/html; charset=\"");
+			strcat_s(SendBuf, BUFFER_SIZE, m_sCharSet.c_str());
+			strcat_s(SendBuf, BUFFER_SIZE, "\"\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "Content-Transfer-Encoding: ");
+			strcat_s(SendBuf, BUFFER_SIZE, m_sCharEncoding.c_str());
+			strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
 
 			SendData(pEntry);
+			dwNumChar += strlen(SendBuf);
 
-			// opening the file:
-			fopen_s(&hFile,Attachments[FileId].c_str(), "rb");
-			if (hFile == NULL)
-				throw ECSmtp(ECSmtp::FILE_NOT_EXIST);
+			if (GetMsgLines())
+			{
+				for (i = 0; i < GetMsgLines(); i++)
+				{
+					ResultLine = GetMsgLineText(i);
+					int dwSize = static_cast<int>(strlen(ResultLine));
+					int Offset = 0;
 
-			// get file size:
+					if (dwSize >= BUFFER_SIZE / 2)
+					{
+						int dwIndex = 0;
+
+						while (Offset < (dwSize - 1))
+						{
+							strncpy_s(SendBuf, BUFFER_SIZE, ResultLine + Offset, BUFFER_SIZE / 2);
+							SendBuf[BUFFER_SIZE / 2] = '\0';
+							SendData(pEntry);
+							dwNumChar += strlen(SendBuf);
+							Offset += BUFFER_SIZE / 2;
+						}
+
+						strcpy_s(SendBuf, BUFFER_SIZE, "\r\n");
+						SendData(pEntry);
+						dwNumChar += strlen(SendBuf);
+					}
+					else
+					{
+						sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", ResultLine);
+						SendData(pEntry);
+						dwNumChar += strlen(SendBuf);
+					}
+				}
+			}
+			else
+			{
+				sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", " ");
+				SendData(pEntry);
+				dwNumChar += strlen(SendBuf);
+			}
+
+			sprintf_s(SendBuf, BUFFER_SIZE, "\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "--");
+			strcat_s(SendBuf, BUFFER_SIZE, SMTP_BOUNDARY_ALTERNATIVE);
+			strcat_s(SendBuf, BUFFER_SIZE, "--\r\n");
+
+			SendData(pEntry);
+			dwNumChar += strlen(SendBuf);
+		}
+
+		sprintf_s(SendBuf, BUFFER_SIZE, "\r\n");
+		SendData(pEntry);
+		dwNumChar += strlen(SendBuf);
+
+		TotalSize = 0;
+
+		for (FileId = 0; FileId < Attachments.size(); FileId++)
+		{
+			sprintf_s(FileName, MAX_PATH, "%s", Attachments[FileId].c_str());
+
+			sprintf_s(SendBuf, BUFFER_SIZE, "--%s\r\n", SMTP_BOUNDARY_MIXED);
+
+			char* FileExt = NULL;
+
+			FileExt = strrchr(&FileName[Attachments[FileId].find_last_of("\\") + 1], '.');
+
+			if (FileExt != NULL)
+			{
+				strcat_s(SendBuf, BUFFER_SIZE, "Content-Type: ");
+				strcat_s(SendBuf, BUFFER_SIZE, Smtp_FindContentType(FileExt));
+				strcat_s(SendBuf, BUFFER_SIZE, ";\r\n\tname=");
+			}
+			else
+				strcat_s(SendBuf, BUFFER_SIZE, "Content-Type: application/octet-stream;\r\n\tname=");
+
+			FileExt = NULL;
+
+			if (strcmp(m_sCharSet.c_str(), "UTF-8") == 0)
+			{
+				std::string szAttNameEncoded;
+
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+
+				szAttNameEncoded.append("=?UTF-8?B?");
+				szAttNameEncoded.append(base64_encode(reinterpret_cast<const unsigned char*>(&FileName[Attachments[FileId].find_last_of("\\") + 1]), static_cast<unsigned int>(strlen(&FileName[Attachments[FileId].find_last_of("\\") + 1]))));
+				szAttNameEncoded.append("?=");
+
+				strcat_s(SendBuf, BUFFER_SIZE, szAttNameEncoded.c_str());
+
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+
+				szAttNameEncoded.clear();
+			}
+			else
+			{
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+				strcat_s(SendBuf, BUFFER_SIZE, &FileName[Attachments[FileId].find_last_of("\\") + 1]);
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+			}
+
+			strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "Content-Transfer-Encoding: base64\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "Content-Disposition: attachment;\r\n\tfilename=");
+
+			if (strcmp(m_sCharSet.c_str(), "UTF-8") == 0)
+			{
+				std::string szAttNameEncoded;
+
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+
+				szAttNameEncoded.append("=?UTF-8?B?");
+				szAttNameEncoded.append(base64_encode(reinterpret_cast<const unsigned char*>(&FileName[Attachments[FileId].find_last_of("\\") + 1]), static_cast<unsigned int>(strlen(&FileName[Attachments[FileId].find_last_of("\\") + 1]))));
+				szAttNameEncoded.append("?=");
+
+				strcat_s(SendBuf, BUFFER_SIZE, szAttNameEncoded.c_str());
+
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+
+				szAttNameEncoded.clear();
+			}
+			else
+			{
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+				strcat_s(SendBuf, BUFFER_SIZE, &FileName[Attachments[FileId].find_last_of("\\") + 1]);
+				strcat_s(SendBuf, BUFFER_SIZE, "\"");
+			}
+
+			strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
+			strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
+
+			SendData(pEntry);
+			dwNumChar += strlen(SendBuf);
+
+			// opening the file
+			err = fopen_s(&hFile, FileName, "rb");
+
+			if (err != NULL)
+			{
+				if (err == EPERM)
+					throw ECSmtp(ECSmtp::ERRNO_EPERM);
+				else if (err == ENOENT)
+					throw ECSmtp(ECSmtp::ERRNO_ENOENT);
+				else if (err == ESRCH)
+					throw ECSmtp(ECSmtp::ERRNO_ESRCH);
+				else if (err == EINTR)
+					throw ECSmtp(ECSmtp::ERRNO_EINTR);
+				else if (err == EIO)
+					throw ECSmtp(ECSmtp::ERRNO_EIO);
+				else if (err == ENXIO)
+					throw ECSmtp(ECSmtp::ERRNO_ENXIO);
+				else if (err == E2BIG)
+					throw ECSmtp(ECSmtp::ERRNO_E2BIG);
+				else if (err == ENOEXEC)
+					throw ECSmtp(ECSmtp::ERRNO_ENOEXEC);
+				else if (err == EBADF)
+					throw ECSmtp(ECSmtp::ERRNO_EBADF);
+				else if (err == ECHILD)
+					throw ECSmtp(ECSmtp::ERRNO_ECHILD);
+				else if (err == EAGAIN)
+					throw ECSmtp(ECSmtp::ERRNO_EAGAIN);
+				else if (err == ENOMEM)
+					throw ECSmtp(ECSmtp::ERRNO_ENOMEM);
+				else if (err == EACCES)
+					throw ECSmtp(ECSmtp::ERRNO_EACCES);
+				else if (err == EFAULT)
+					throw ECSmtp(ECSmtp::ERRNO_EFAULT);
+				else if (err == EBUSY)
+					throw ECSmtp(ECSmtp::ERRNO_EBUSY);
+				else if (err == EEXIST)
+					throw ECSmtp(ECSmtp::ERRNO_EEXIST);
+				else if (err == EXDEV)
+					throw ECSmtp(ECSmtp::ERRNO_EXDEV);
+				else if (err == ENODEV)
+					throw ECSmtp(ECSmtp::ERRNO_ENODEV);
+				else if (err == ENOTDIR)
+					throw ECSmtp(ECSmtp::ERRNO_ENOTDIR);
+				else if (err == EISDIR)
+					throw ECSmtp(ECSmtp::ERRNO_EISDIR);
+				else if (err == EINVAL)
+					throw ECSmtp(ECSmtp::ERRNO_EINVAL);
+				else if (err == ENFILE)
+					throw ECSmtp(ECSmtp::ERRNO_ENFILE);
+				else if (err == EMFILE)
+					throw ECSmtp(ECSmtp::ERRNO_EMFILE);
+				else if (err == ENOTTY)
+					throw ECSmtp(ECSmtp::ERRNO_ENOTTY);
+				else if (err == EFBIG)
+					throw ECSmtp(ECSmtp::ERRNO_EFBIG);
+				else if (err == ENOSPC)
+					throw ECSmtp(ECSmtp::ERRNO_ENOSPC);
+				else if (err == ESPIPE)
+					throw ECSmtp(ECSmtp::ERRNO_ESPIPE);
+				else if (err == EROFS)
+					throw ECSmtp(ECSmtp::ERRNO_EROFS);
+				else if (err == EMLINK)
+					throw ECSmtp(ECSmtp::ERRNO_EMLINK);
+				else if (err == EPIPE)
+					throw ECSmtp(ECSmtp::ERRNO_EPIPE);
+				else if (err == EDOM)
+					throw ECSmtp(ECSmtp::ERRNO_EDOM);
+				else if (err == ERANGE)
+					throw ECSmtp(ECSmtp::ERRNO_ERANGE);
+				else if (err == EDEADLK)
+					throw ECSmtp(ECSmtp::ERRNO_EDEADLK);
+				else if (err == ENAMETOOLONG)
+					throw ECSmtp(ECSmtp::ERRNO_ENAMETOOLONG);
+				else if (err == ENOLCK)
+					throw ECSmtp(ECSmtp::ERRNO_ENOLCK);
+				else if (err == ENOSYS)
+					throw ECSmtp(ECSmtp::ERRNO_ENOSYS);
+				else if (err == ENOTEMPTY)
+					throw ECSmtp(ECSmtp::ERRNO_ENOTEMPTY);
+				else if (err == EILSEQ)
+					throw ECSmtp(ECSmtp::ERRNO_EILSEQ);
+				else if (err == STRUNCATE)
+					throw ECSmtp(ECSmtp::ERRNO_STRUNCATE);
+				else
+					throw ECSmtp(ECSmtp::FILE_NOT_EXIST);
+			}
+
+			// checking file size
+			FileSize = 0;
+
 			fseek(hFile, 0, SEEK_END);
 			FileSize = ftell(hFile);
 			fseek(hFile, 0, SEEK_SET);
 
+			// sending the file
 			MsgPart = 0;
-			for (i = 0; i < FileSize / 54 + 1; i++)
+
+			for (i = 0; i < FileSize / SMTP_BYTE_SIZE_FILE + 1; i++)
 			{
-				res = fread(FileBuf, sizeof(char), 54, hFile);
-				if (MsgPart) {
-					strcat_s(SendBuf,BUFFER_SIZE, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str());
-				}
-				else {
-					 strcpy_s(SendBuf, BUFFER_SIZE, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str());
-				}
-				strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
+				res = static_cast<unsigned int>(fread(FileBuf, sizeof(char), SMTP_BYTE_SIZE_FILE, hFile));
+				MsgPart ? strcat_s(SendBuf, BUFFER_SIZE, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str())
+					: strcpy_s(SendBuf, BUFFER_SIZE, base64_encode(reinterpret_cast<const unsigned char*>(FileBuf), res).c_str());
+				strcat_s(SendBuf, BUFFER_SIZE, "\r\n");
 				MsgPart += res + 2;
-				if (MsgPart >= BUFFER_SIZE / 2)
+				if (MsgPart >= (BUFFER_SIZE / 2))
 				{ // sending part of the message
 					MsgPart = 0;
-					SendData(pEntry); // FileBuf, FileName, fclose(hFile);
+					SendData(pEntry);
+					dwNumChar += strlen(SendBuf);
 				}
 			}
+
 			if (MsgPart)
 			{
-				SendData(pEntry); // FileBuf, FileName, fclose(hFile);
+				SendData(pEntry);
+				dwNumChar += strlen(SendBuf);
 			}
+
 			fclose(hFile);
-			hFile = NULL;
 		}
+
 		delete[] FileBuf;
+		delete[] FileName;
+
 		FileBuf = NULL;
+		FileName = NULL;
 
 		// sending last message block (if there is one or more attachments)
 		if (Attachments.size())
 		{
-			snprintf(SendBuf, BUFFER_SIZE, "\r\n--%s--\r\n", BOUNDARY_TEXT);
+			sprintf_s(SendBuf, BUFFER_SIZE, "\r\n--%s--\r\n", SMTP_BOUNDARY_MIXED);
 			SendData(pEntry);
+			dwNumChar += strlen(SendBuf);
 		}
 
-		pEntry = FindCommandEntry(command_DATAEND);
 		// <CRLF> . <CRLF>
-		snprintf(SendBuf, BUFFER_SIZE, "\r\n.\r\n");
+		pEntry = FindCommandEntry(command_DATAEND);
+		strcpy_s(SendBuf, BUFFER_SIZE, "\r\n.\r\n");
 		SendData(pEntry);
 		ReceiveResponse(pEntry);
 	}
 	catch (const ECSmtp&)
 	{
-		if (hFile) fclose(hFile);
-		if (FileBuf) delete[] FileBuf;
 		DisconnectRemoteServer();
 		throw;
 	}
@@ -742,8 +1019,6 @@ void CSmtp::Send()
 //              BCCRecipients, m_pcMsgBody, Attachments, 
 // MODIFIES GL: m_oError 
 //     RETURNS: socket of the remote service
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort_/*=0*/,
 	SMTP_SECURITY_TYPE securityType/*=DO_NOT_SET*/,
@@ -765,7 +1040,7 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 
 		hSocket = INVALID_SOCKET;
 
-		if ((hSocket = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
+		if ((hSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
 			throw ECSmtp(ECSmtp::WSA_INVALID_SOCKET);
 
 		if (nPort_ != 0)
@@ -781,52 +1056,34 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 
 		sockAddr.sin_family = AF_INET;
 		sockAddr.sin_port = nPort;
-		if ((sockAddr.sin_addr.s_addr = inet_addr(szServer)) == INADDR_NONE)
-		{
-			LPHOSTENT host;
 
-			host = gethostbyname(szServer);
-			if (host)
-				memcpy(&sockAddr.sin_addr, host->h_addr_list[0], host->h_length);
-			else
-			{
-#ifdef LINUX
-				close(hSocket);
-#else
-				closesocket(hSocket);
-#endif
-				throw ECSmtp(ECSmtp::WSA_GETHOSTBY_NAME_ADDR);
-			}
+		struct addrinfo hints, *hres;
+
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_family = AF_INET;
+
+		if (getaddrinfo(szServer, NULL, &hints, &hres) != 0)
+		{
+			closesocket(hSocket);
+			throw ECSmtp(ECSmtp::WSA_GETHOSTBY_NAME_ADDR);
 		}
 
+		sockAddr.sin_addr = ((struct sockaddr_in *)(hres->ai_addr))->sin_addr;
+		freeaddrinfo(hres);
+
 		// start non-blocking mode for socket:
-#ifdef LINUX
-		if (ioctl(hSocket, FIONBIO, (unsigned long*)& ul) == SOCKET_ERROR)
-#else
-		if (ioctlsocket(hSocket, FIONBIO, (unsigned long*)& ul) == SOCKET_ERROR)
-#endif
+		if (ioctlsocket(hSocket, FIONBIO, (unsigned long*)&ul) == SOCKET_ERROR)
 		{
-#ifdef LINUX
-			close(hSocket);
-#else
 			closesocket(hSocket);
-#endif
 			throw ECSmtp(ECSmtp::WSA_IOCTLSOCKET);
 		}
 
-		if (connect(hSocket, (LPSOCKADDR)& sockAddr, sizeof(sockAddr)) == SOCKET_ERROR)
+		if (connect(hSocket, (LPSOCKADDR)&sockAddr, sizeof(sockAddr)) == SOCKET_ERROR)
 		{
-#ifdef LINUX
-			if (errno != EINPROGRESS)
-#else
 			if (WSAGetLastError() != WSAEWOULDBLOCK)
-#endif
 			{
-#ifdef LINUX
-				close(hSocket);
-#else
 				closesocket(hSocket);
-#endif
 				throw ECSmtp(ECSmtp::WSA_CONNECT);
 			}
 		}
@@ -841,34 +1098,22 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 			FD_SET(hSocket, &fdwrite);
 			FD_SET(hSocket, &fdexcept);
 
-			if ((res = select(hSocket + 1, NULL, &fdwrite, &fdexcept, &timeout)) == SOCKET_ERROR)
+			if ((res = select(0, NULL, &fdwrite, &fdexcept, &timeout)) == SOCKET_ERROR)
 			{
-#ifdef LINUX
-				close(hSocket);
-#else
 				closesocket(hSocket);
-#endif
 				throw ECSmtp(ECSmtp::WSA_SELECT);
 			}
 
 			if (!res)
 			{
-#ifdef LINUX
-				close(hSocket);
-#else
 				closesocket(hSocket);
-#endif
 				throw ECSmtp(ECSmtp::SELECT_TIMEOUT);
 			}
 			if (res && FD_ISSET(hSocket, &fdwrite))
 				break;
 			if (res && FD_ISSET(hSocket, &fdexcept))
 			{
-#ifdef LINUX
-				close(hSocket);
-#else
 				closesocket(hSocket);
-#endif
 				throw ECSmtp(ECSmtp::WSA_SELECT);
 			}
 		} // while
@@ -910,44 +1155,47 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 			if (IsKeywordSupported(RecvBuf, "LOGIN") == true)
 			{
 				pEntry = FindCommandEntry(command_AUTHLOGIN);
-				snprintf(SendBuf, BUFFER_SIZE, "AUTH LOGIN\r\n");
+				strcpy_s(SendBuf, BUFFER_SIZE, "AUTH LOGIN\r\n");
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 
 				// send login:
-				std::string encoded_login = base64_encode(reinterpret_cast<const unsigned char*>(m_sLogin.c_str()), m_sLogin.size());
+				std::string encoded_login = base64_encode(reinterpret_cast<const unsigned char*>(m_sLogin.c_str()), static_cast<unsigned int>(m_sLogin.size()));
 				pEntry = FindCommandEntry(command_USER);
-				snprintf(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_login.c_str());
+				sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_login.c_str());
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 
 				// send password:
-				std::string encoded_password = base64_encode(reinterpret_cast<const unsigned char*>(m_sPassword.c_str()), m_sPassword.size());
+				std::string encoded_password = base64_encode(reinterpret_cast<const unsigned char*>(m_sPassword.c_str()), static_cast<unsigned int>(m_sPassword.size()));
 				pEntry = FindCommandEntry(command_PASSWORD);
-				snprintf(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_password.c_str());
+				sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_password.c_str());
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 			}
 			else if (IsKeywordSupported(RecvBuf, "PLAIN") == true)
 			{
 				pEntry = FindCommandEntry(command_AUTHPLAIN);
-				snprintf(SendBuf, BUFFER_SIZE, "%s^%s^%s", m_sLogin.c_str(), m_sLogin.c_str(), m_sPassword.c_str());
-				unsigned int length = strlen(SendBuf);
-				unsigned char* ustrLogin = CharToUnsignedChar(SendBuf);
-				for (unsigned int i = 0; i < length; i++)
-				{
-					if (ustrLogin[i] == 94) ustrLogin[i] = 0;
-				}
-				std::string encoded_login = base64_encode(ustrLogin, length);
-				delete[] ustrLogin;
-				snprintf(SendBuf, BUFFER_SIZE, "AUTH PLAIN %s\r\n", encoded_login.c_str());
+
+				std::string m_sAuthPlain;
+
+				m_sAuthPlain.append(m_sLogin.c_str());
+				m_sAuthPlain.append(" ");
+				m_sAuthPlain.append(m_sLogin.c_str());
+				m_sAuthPlain.append(" ");
+				m_sAuthPlain.append(m_sPassword.c_str());
+
+				std::string encoded_login = base64_encode(reinterpret_cast<const unsigned char*>(m_sAuthPlain.c_str()), static_cast<unsigned int>(m_sAuthPlain.size()));
+
+				m_sAuthPlain.clear();
+				sprintf_s(SendBuf, BUFFER_SIZE, "AUTH PLAIN %s\r\n", encoded_login.c_str());
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 			}
 			else if (IsKeywordSupported(RecvBuf, "CRAM-MD5") == true)
 			{
 				pEntry = FindCommandEntry(command_AUTHCRAMMD5);
-				snprintf(SendBuf, BUFFER_SIZE, "AUTH CRAM-MD5\r\n");
+				strcpy_s(SendBuf, BUFFER_SIZE, "AUTH CRAM-MD5\r\n");
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 
@@ -964,56 +1212,84 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 				//should encode as dGltIGI5MTNhNjAyYzdlZGE3YTQ5NWI0ZTZlNzMzNGQzODkw
 				/////////////////////////////////////////////////////////////////////
 
-				unsigned char* ustrChallenge = CharToUnsignedChar(decoded_challenge.c_str());
-				unsigned char* ustrPassword = CharToUnsignedChar(m_sPassword.c_str());
-				if (!ustrChallenge || !ustrPassword)
+				std::string ustrPassword;
+
+				if (static_cast<int>(decoded_challenge.size()) == 0)
+					throw ECSmtp(ECSmtp::BAD_DECODE_CHALLENGE);
+
+				if (static_cast<int>(m_sPassword.size()) == 0)
 					throw ECSmtp(ECSmtp::BAD_LOGIN_PASSWORD);
 
-				// if ustrPassword is longer than 64 bytes reset it to ustrPassword=MD5(ustrPassword)
-				int passwordLength = m_sPassword.size();
-				if (passwordLength > 64) {
-					MD5 md5password;
-					md5password.update(ustrPassword, passwordLength);
-					md5password.finalize();
-					ustrPassword = md5password.raw_digest();
-					passwordLength = 16;
+				ustrPassword = m_sPassword;
+
+				// if ustrPassword is longer than 64 bytes reset it to ustrPassword = MD5(ustrPassword)
+				if (static_cast<int>(m_sPassword.size()) > 64)
+				{
+					MD5_CTX ctx;
+					unsigned char digest[16];
+
+					memset(digest, 0, 16);
+
+					MD5_Init(&ctx);
+					MD5_Update(&ctx, ustrPassword.c_str(), strlen(ustrPassword.c_str()));
+					MD5_Final(digest, &ctx);
+
+					ustrPassword.clear();
+					ustrPassword.append(reinterpret_cast<char*>(digest));
+
+					memset(digest, 0, 16);
 				}
 
-				//Storing ustrPassword in pads
-				unsigned char ipad[65], opad[65];
-				memset(ipad, 0, 64);
-				memset(opad, 0, 64);
-				memcpy(ipad, ustrPassword, passwordLength);
-				memcpy(opad, ustrPassword, passwordLength);
+				// Storing ustrPassword in pads
+				std::string ipad(ustrPassword.c_str());
+				std::string opad(ustrPassword.c_str());
+
+				ipad.resize(64, '\0');
+				opad.resize(64, '\0');
 
 				// XOR ustrPassword with ipad and opad values
-				for (int i = 0; i < 64; i++) {
+				for (int i = 0; i < 64; i++)
+				{
 					ipad[i] ^= 0x36;
 					opad[i] ^= 0x5c;
 				}
 
-				//perform inner MD5
-				MD5 md5pass1;
-				md5pass1.update(ipad, 64);
-				md5pass1.update(ustrChallenge, decoded_challenge.size());
-				md5pass1.finalize();
-				unsigned char* ustrResult = md5pass1.raw_digest();
+				unsigned char ustrDigestResult[16];
+				char ustrResults[33];
 
-				//perform outer MD5
-				MD5 md5pass2;
-				md5pass2.update(opad, 64);
-				md5pass2.update(ustrResult, 16);
-				md5pass2.finalize();
-				decoded_challenge = md5pass2.hex_digest();
+				memset(ustrDigestResult, 0, 16);
+				memset(ustrResults, 0, 33);
 
-				delete[] ustrChallenge;
-				delete[] ustrPassword;
-				delete[] ustrResult;
+				// Perform inner MD5
+				MD5_CTX ictx;
 
+				MD5_Init(&ictx);
+				MD5_Update(&ictx, ipad.c_str(), strlen(ipad.c_str()));
+				MD5_Update(&ictx, decoded_challenge.c_str(), strlen(decoded_challenge.c_str()));
+				MD5_Final(ustrDigestResult, &ictx);
+
+				// Perform outer MD5
+				MD5_CTX octx;
+
+				MD5_Init(&octx);
+				MD5_Update(&octx, opad.c_str(), strlen(opad.c_str()));
+				MD5_Update(&octx, ustrDigestResult, 16);
+				MD5_Final(ustrDigestResult, &octx);
+
+				for (int i = 0; i < 16; i++)
+					sprintf_s(&ustrResults[i * 2], 33, "%02x", (unsigned int)ustrDigestResult[i]);
+
+				decoded_challenge.clear();
+				decoded_challenge.append(reinterpret_cast<char*>(ustrResults));
+
+				memset(ustrDigestResult, 0, 16);
+				memset(ustrResults, 0, 33);
+
+				// Final
 				decoded_challenge = m_sLogin + " " + decoded_challenge;
-				encoded_challenge = base64_encode(reinterpret_cast<const unsigned char*>(decoded_challenge.c_str()), decoded_challenge.size());
+				encoded_challenge = base64_encode(reinterpret_cast<const unsigned char*>(decoded_challenge.c_str()), static_cast<unsigned int>(decoded_challenge.size()));
 
-				snprintf(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_challenge.c_str());
+				sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_challenge.c_str());
 				pEntry = FindCommandEntry(command_PASSWORD);
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
@@ -1021,7 +1297,7 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 			else if (IsKeywordSupported(RecvBuf, "DIGEST-MD5") == true)
 			{
 				pEntry = FindCommandEntry(command_DIGESTMD5);
-				snprintf(SendBuf, BUFFER_SIZE, "AUTH DIGEST-MD5\r\n");
+				strcpy_s(SendBuf, BUFFER_SIZE, "AUTH DIGEST-MD5\r\n");
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 
@@ -1036,57 +1312,76 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 				/////////////////////////////////////////////////////////////////////
 
 				//Get the nonce (manditory)
-				int find = decoded_challenge.find("nonce");
+				int find = static_cast<int>(decoded_challenge.find("nonce"));
+
 				if (find < 0)
 					throw ECSmtp(ECSmtp::BAD_DIGEST_RESPONSE);
+
 				std::string nonce = decoded_challenge.substr(find + 7);
-				find = nonce.find("\"");
+
+				find = static_cast<int>(nonce.find("\""));
+
 				if (find < 0)
 					throw ECSmtp(ECSmtp::BAD_DIGEST_RESPONSE);
+
 				nonce = nonce.substr(0, find);
 
 				//Get the realm (optional)
 				std::string realm;
-				find = decoded_challenge.find("realm");
-				if (find >= 0) {
+
+				find = static_cast<int>(decoded_challenge.find("realm"));
+
+				if (find >= 0)
+				{
 					realm = decoded_challenge.substr(find + 7);
-					find = realm.find("\"");
+					find = static_cast<int>(realm.find("\""));
+
 					if (find < 0)
 						throw ECSmtp(ECSmtp::BAD_DIGEST_RESPONSE);
+
 					realm = realm.substr(0, find);
 				}
 
 				//Create a cnonce
 				char cnonce[17], nc[9];
-				snprintf(cnonce, 17, "%x", (unsigned int)time(NULL));
+				sprintf_s(cnonce, 17, "%x", (unsigned int)time(NULL));
 
 				//Set nonce count
-				snprintf(nc, 9, "%08d", 1);
+				sprintf_s(nc, 9, "%08d", 1);
 
 				//Set QOP
 				std::string qop = "auth";
 
 				//Get server address and set uri
 				//Skip this step during test
-#ifdef __linux__
-				socklen_t len;
-#else
+
 				int len;
-#endif
+
 				struct sockaddr_storage addr;
 				len = sizeof addr;
-				if (!getpeername(hSocket, (struct sockaddr*) & addr, &len))
+
+				if (!getpeername(hSocket, (struct sockaddr*)&addr, &len))
 					throw ECSmtp(ECSmtp::BAD_SERVER_NAME);
 
-				struct sockaddr_in* s = (struct sockaddr_in*) & addr;
-				std::string uri = inet_ntoa(s->sin_addr);
+				struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+
+				char str[INET_ADDRSTRLEN];
+
+				memset(str, 0, INET_ADDRSTRLEN);
+
+				inet_ntop(AF_INET, &(s->sin_addr), str, INET_ADDRSTRLEN);
+
+				std::string uri = str;
+
+				memset(str, 0, INET_ADDRSTRLEN);
+
 				uri = "smtp/" + uri;
 
 				/////////////////////////////////////////////////////////////////////
 				//test data from RFC 2831
 				//m_sLogin = "chris";
 				//m_sPassword = "secret";
-				//snprintf(cnonce, 17, "OA6MHXh6VqTrRk");
+				//strcpy(cnonce, "OA6MHXh6VqTrRk");
 				//uri = "imap/elwood.innosoft.com";
 				//Should form the response:
 				//    charset=utf-8,username="chris",
@@ -1102,105 +1397,129 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 				/////////////////////////////////////////////////////////////////////
 
 				//Calculate digest response
-				unsigned char* ustrRealm = CharToUnsignedChar(realm.c_str());
-				unsigned char* ustrUsername = CharToUnsignedChar(m_sLogin.c_str());
-				unsigned char* ustrPassword = CharToUnsignedChar(m_sPassword.c_str());
-				unsigned char* ustrNonce = CharToUnsignedChar(nonce.c_str());
-				unsigned char* ustrCNonce = CharToUnsignedChar(cnonce);
-				unsigned char* ustrUri = CharToUnsignedChar(uri.c_str());
-				unsigned char* ustrNc = CharToUnsignedChar(nc);
-				unsigned char* ustrQop = CharToUnsignedChar(qop.c_str());
-				if (!ustrRealm || !ustrUsername || !ustrPassword || !ustrNonce || !ustrCNonce || !ustrUri || !ustrNc || !ustrQop)
+				if (static_cast<int>(realm.size()) == 0 || static_cast<int>(m_sLogin.size()) == 0 ||
+					static_cast<int>(m_sPassword.size()) == 0 || static_cast<int>(nonce.size()) == 0 ||
+					strlen(cnonce) == 0 || static_cast<int>(uri.size()) == 0 || strlen(nc) == 0 ||
+					static_cast<int>(qop.size()) == 0)
 					throw ECSmtp(ECSmtp::BAD_LOGIN_PASSWORD);
 
-				MD5 md5a1a;
-				md5a1a.update(ustrUsername, m_sLogin.size());
-				md5a1a.update((unsigned char*)":", 1);
-				md5a1a.update(ustrRealm, realm.size());
-				md5a1a.update((unsigned char*)":", 1);
-				md5a1a.update(ustrPassword, m_sPassword.size());
-				md5a1a.finalize();
-				unsigned char* ua1 = md5a1a.raw_digest();
+				MD5_CTX A1Actx;
+				unsigned char uA1A[16];
 
-				MD5 md5a1b;
-				md5a1b.update(ua1, 16);
-				md5a1b.update((unsigned char*)":", 1);
-				md5a1b.update(ustrNonce, nonce.size());
-				md5a1b.update((unsigned char*)":", 1);
-				md5a1b.update(ustrCNonce, strlen(cnonce));
+				memset(uA1A, '\0', 16);
+
+				MD5_Init(&A1Actx);
+				MD5_Update(&A1Actx, m_sLogin.c_str(), static_cast<unsigned int>(m_sLogin.size()));
+				MD5_Update(&A1Actx, ":", 1);
+				MD5_Update(&A1Actx, realm.c_str(), static_cast<unsigned int>(realm.size()));
+				MD5_Update(&A1Actx, ":", 1);
+				MD5_Update(&A1Actx, m_sPassword.c_str(), static_cast<unsigned int>(m_sPassword.size()));
+				MD5_Final(uA1A, &A1Actx);
+
+				MD5_CTX A1Bctx;
+				unsigned char uA1B[16];
+
+				memset(uA1B, '\0', 16);
+
+				MD5_Init(&A1Bctx);
+				MD5_Update(&A1Bctx, uA1A, 16);
+				MD5_Update(&A1Bctx, ":", 1);
+				MD5_Update(&A1Bctx, nonce.c_str(), static_cast<unsigned int>(nonce.size()));
+				MD5_Update(&A1Bctx, ":", 1);
+				MD5_Update(&A1Bctx, cnonce, static_cast<unsigned int>(strlen(cnonce)));
 				//authzid could be added here
-				md5a1b.finalize();
-				char* a1 = md5a1b.hex_digest();
+				MD5_Final(uA1B, &A1Bctx);
 
-				MD5 md5a2;
-				md5a2.update((unsigned char*) "AUTHENTICATE:", 13);
-				md5a2.update(ustrUri, uri.size());
+				MD5_CTX A2ctx;
+				unsigned char uA2A[16];
+
+				memset(uA2A, '\0', 16);
+
+				MD5_Init(&A2ctx);
+				MD5_Update(&A2ctx, "AUTHENTICATE:", 13);
+				MD5_Update(&A2ctx, uri.c_str(), static_cast<unsigned int>(uri.size()));
 				//authint and authconf add an additional line here	
-				md5a2.finalize();
-				char* a2 = md5a2.hex_digest();
+				MD5_Final(uA2A, &A2ctx);
 
-				delete[] ua1;
-				ua1 = CharToUnsignedChar(a1);
-				unsigned char* ua2 = CharToUnsignedChar(a2);
+				memset(uA1A, '\0', 16);
+
+				char uA1[33];
+				char uA2[33];
+
+				for (int i = 0; i < 16; i++)
+				{
+					sprintf_s(&uA1[i * 2], 33, "%02x", (unsigned int)uA1B[i]);
+					sprintf_s(&uA2[i * 2], 33, "%02x", (unsigned int)uA2A[i]);
+				}
 
 				//compute KD
-				MD5 md5;
-				md5.update(ua1, 32);
-				md5.update((unsigned char*)":", 1);
-				md5.update(ustrNonce, nonce.size());
-				md5.update((unsigned char*)":", 1);
-				md5.update(ustrNc, strlen(nc));
-				md5.update((unsigned char*)":", 1);
-				md5.update(ustrCNonce, strlen(cnonce));
-				md5.update((unsigned char*)":", 1);
-				md5.update(ustrQop, qop.size());
-				md5.update((unsigned char*)":", 1);
-				md5.update(ua2, 32);
-				md5.finalize();
-				decoded_challenge = md5.hex_digest();
+				MD5_CTX KDctx;
+				unsigned char KDResult[16];
+				char KDdecoded_challenge[33];
 
-				delete[] ustrRealm;
-				delete[] ustrUsername;
-				delete[] ustrPassword;
-				delete[] ustrNonce;
-				delete[] ustrCNonce;
-				delete[] ustrUri;
-				delete[] ustrNc;
-				delete[] ustrQop;
-				delete[] ua1;
-				delete[] ua2;
-				delete[] a1;
-				delete[] a2;
+				memset(KDResult, '\0', 16);
+
+				MD5_Init(&KDctx);
+				MD5_Update(&KDctx, uA1, 33);
+				MD5_Update(&KDctx, ":", 1);
+				MD5_Update(&KDctx, nonce.c_str(), static_cast<unsigned int>(nonce.size()));
+				MD5_Update(&KDctx, ":", 1);
+				MD5_Update(&KDctx, nc, static_cast<unsigned int>(strlen(nc)));
+				MD5_Update(&KDctx, ":", 1);
+				MD5_Update(&KDctx, cnonce, static_cast<unsigned int>(strlen(cnonce)));
+				MD5_Update(&KDctx, ":", 1);
+				MD5_Update(&KDctx, qop.c_str(), static_cast<unsigned int>(qop.size()));
+				MD5_Update(&KDctx, ":", 1);
+				MD5_Update(&KDctx, uA2, 33);
+				MD5_Final(KDResult, &KDctx);
+
+				for (int i = 0; i < 16; i++)
+					sprintf_s(&KDdecoded_challenge[i * 2], 33, "%02x", (unsigned int)KDResult[i]);
+
+				memset(uA1, '\0', 33);
+				memset(uA2, '\0', 33);
+				memset(KDResult, '\0', 16);
+				memset(KDdecoded_challenge, '\0', 33);
+
+				decoded_challenge.clear();
+				decoded_challenge = KDdecoded_challenge;
 
 				//send the response
-				if (strstr(RecvBuf, "charset") >= 0) snprintf(SendBuf, BUFFER_SIZE, "charset=utf-8,username=\"%s\"", m_sLogin.c_str());
-				else snprintf(SendBuf, BUFFER_SIZE, "username=\"%s\"", m_sLogin.c_str());
-				if (!realm.empty()) {
-					snprintf(RecvBuf, BUFFER_SIZE, ",realm=\"%s\"", realm.c_str());
-					strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
+				if (strstr(RecvBuf, "charset") >= 0)
+					sprintf_s(SendBuf, BUFFER_SIZE, "charset=utf-8,username=\"%s\"", m_sLogin.c_str());
+				else
+					sprintf_s(SendBuf, BUFFER_SIZE, "username=\"%s\"", m_sLogin.c_str());
+
+				if (!realm.empty())
+				{
+					sprintf_s(RecvBuf, BUFFER_SIZE, ",realm=\"%s\"", realm.c_str());
+					strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
 				}
-				snprintf(RecvBuf, BUFFER_SIZE, ",nonce=\"%s\"", nonce.c_str());
-				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
-				snprintf(RecvBuf, BUFFER_SIZE, ",nc=%s", nc);
-				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
-				snprintf(RecvBuf, BUFFER_SIZE, ",cnonce=\"%s\"", cnonce);
-				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
-				snprintf(RecvBuf, BUFFER_SIZE, ",digest-uri=\"%s\"", uri.c_str());
-				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
-				snprintf(RecvBuf, BUFFER_SIZE, ",response=%s", decoded_challenge.c_str());
-				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
-				snprintf(RecvBuf, BUFFER_SIZE, ",qop=%s", qop.c_str());
-				strcat_s(SendBuf,BUFFER_SIZE,  RecvBuf);
-				unsigned char* ustrDigest = CharToUnsignedChar(SendBuf);
-				encoded_challenge = base64_encode(ustrDigest, strlen(SendBuf));
-				delete[] ustrDigest;
-				snprintf(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_challenge.c_str());
+
+				sprintf_s(RecvBuf, BUFFER_SIZE, ",nonce=\"%s\"", nonce.c_str());
+				strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
+				sprintf_s(RecvBuf, BUFFER_SIZE, ",nc=%s", nc);
+				strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
+				sprintf_s(RecvBuf, BUFFER_SIZE, ",cnonce=\"%s\"", cnonce);
+				strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
+				sprintf_s(RecvBuf, BUFFER_SIZE, ",digest-uri=\"%s\"", uri.c_str());
+				strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
+				sprintf_s(RecvBuf, BUFFER_SIZE, ",response=%s", decoded_challenge.c_str());
+				strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
+				sprintf_s(RecvBuf, BUFFER_SIZE, ",qop=%s", qop.c_str());
+				strcat_s(SendBuf, BUFFER_SIZE, RecvBuf);
+
+				std::string  ustrDigest = SendBuf;
+				encoded_challenge = base64_encode(reinterpret_cast<const unsigned char*>(ustrDigest.c_str()), static_cast<unsigned int>(ustrDigest.size()));
+
+				// Send econded result
+				sprintf_s(SendBuf, BUFFER_SIZE, "%s\r\n", encoded_challenge.c_str());
 				pEntry = FindCommandEntry(command_DIGESTMD5);
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
 
-				//Send completion carraige return
-				snprintf(SendBuf, BUFFER_SIZE, "\r\n");
+				// Send completion carraige return
+				sprintf_s(SendBuf, BUFFER_SIZE, "\r\n");
 				pEntry = FindCommandEntry(command_PASSWORD);
 				SendData(pEntry);
 				ReceiveResponse(pEntry);
@@ -1212,6 +1531,7 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 	{
 		if (RecvBuf[0] == '5' && RecvBuf[1] == '3' && RecvBuf[2] == '0')
 			m_bConnected = false;
+
 		DisconnectRemoteServer();
 		throw;
 		return false;
@@ -1227,20 +1547,15 @@ bool CSmtp::ConnectRemoteServer(const char* szServer, const unsigned short nPort
 // USES GLOBAL: none
 // MODIFIES GL: none
 //     RETURNS: void
-//      AUTHOR: David Johns
-// AUTHOR/DATE: DRJ 2010-08-14
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::DisconnectRemoteServer()
 {
-	if (m_bConnected) SayQuit();
+	if (m_bConnected)
+		SayQuit();
+
 	if (hSocket)
-	{
-#ifdef LINUX
-		close(hSocket);
-#else
 		closesocket(hSocket);
-#endif
-	}
+
 	hSocket = INVALID_SOCKET;
 }
 
@@ -1251,14 +1566,14 @@ void CSmtp::DisconnectRemoteServer()
 // USES GLOBAL: RecvBuf
 // MODIFIES GL: none
 //     RETURNS: integer number
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 int CSmtp::SmtpXYZdigits()
 {
 	assert(RecvBuf);
+
 	if (RecvBuf == NULL)
 		return 0;
+
 	return (RecvBuf[0] - '0') * 100 + (RecvBuf[1] - '0') * 10 + RecvBuf[2] - '0';
 }
 
@@ -1269,25 +1584,50 @@ int CSmtp::SmtpXYZdigits()
 // USES GLOBAL: Recipients, CCRecipients, BCCRecipients
 // MODIFIES GL: none
 //     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::FormatHeader(char* header)
 {
 	char month[][4] = { "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec" };
+	char weekday[][4] = { "Sun","Mon","Tue","Wed","Thu","Fri","Sat" };
 	size_t i;
 	std::string to;
 	std::string cc;
-	std::string bcc;
 	time_t rawtime;
 	struct tm timeinfo;
 
+	unsigned char day[2];
+	long long num[2];
+	long long dwResult;
+
 	// date/time check
-	if (time(&rawtime) > 0)
-		localtime_s(&timeinfo, &rawtime);
+	time(&rawtime);
+
+	// UTC
+	gmtime_s(&timeinfo, &rawtime);
+	day[0] = timeinfo.tm_mday;
+	num[0] = (timeinfo.tm_hour * 3600) + (timeinfo.tm_min * 60);
+
+	// LocalTime
+	localtime_s(&timeinfo, &rawtime);
+	day[1] = timeinfo.tm_mday;
+	num[1] = (timeinfo.tm_hour * 3600) + (timeinfo.tm_min * 60);
+
+	dwResult = 0;
+
+	if (day[0] == day[1]) // No date difference
+	{
+		if (num[0] < num[1])
+			dwResult = num[1] - num[0]; // Positive ex. CUT +1
+		else if (num[0] > num[1])
+			dwResult = num[0] - num[1]; // Negative ex. Pacific -8
+	}
+	else if (day[0] < day[1]) // Ex. 1: 30 am Jan 1 : 11: 30 pm Dec 31
+		dwResult = (86400 - num[0]) + num[1];
 	else
-		throw ECSmtp(ECSmtp::TIME_ERROR);
+		dwResult = (86400 - num[1]) + num[0]; // Opposite
+
+	if (dwResult != 0)
+		dwResult = dwResult / 3600;
 
 	// check for at least one recipient
 	if (Recipients.size())
@@ -1319,118 +1659,257 @@ void CSmtp::FormatHeader(char* header)
 	}
 
 	// Date: <SP> <dd> <SP> <mon> <SP> <yy> <SP> <hh> ":" <mm> ":" <ss> <SP> <zone> <CRLF>
-	snprintf(header, BUFFER_SIZE, "Date: %d %s %d %d:%d:%d\r\n", timeinfo.tm_mday,
-		month[timeinfo.tm_mon], timeinfo.tm_year + 1900, timeinfo.tm_hour,
-		timeinfo.tm_min, timeinfo.tm_sec);
+	if (dwResult >= 0)
+		sprintf_s(header, BUFFER_SIZE, "Date: %s, %02d %s %04d %02d:%02d:%02d +%02lld00\r\n", weekday[timeinfo.tm_wday], timeinfo.tm_mday,
+			month[timeinfo.tm_mon],
+			timeinfo.tm_year + 1900,
+			timeinfo.tm_hour,
+			timeinfo.tm_min,
+			timeinfo.tm_sec,
+			dwResult);
+	else
+		sprintf_s(header, BUFFER_SIZE, "Date: %s, %02d %s %04d %02d:%02d:%02d -%02lld00\r\n", weekday[timeinfo.tm_wday], timeinfo.tm_mday,
+			month[timeinfo.tm_mon],
+			timeinfo.tm_year + 1900,
+			timeinfo.tm_hour,
+			timeinfo.tm_min,
+			timeinfo.tm_sec,
+			dwResult * -1);
+
+	int dwRandomHash;
+
+	// Message-Id:
+	strcat_s(header, BUFFER_SIZE, "Message-Id: <");
+
+	dwRandomHash = timeinfo.tm_min + (rand() % ++timeinfo.tm_min);
+
+	sprintf_s(szMsgId, BUFFER_MSGID_SIZE, "%04d%02d%02d%02d%02d%02d.%011X@", timeinfo.tm_year + 1900,
+		timeinfo.tm_mon + 1,
+		timeinfo.tm_mday,
+		timeinfo.tm_hour,
+		timeinfo.tm_min,
+		timeinfo.tm_sec,
+		dwRandomHash);
+
+	strcat_s(header, BUFFER_SIZE, szMsgId);
+	strcat_s(header, BUFFER_SIZE, m_sSMTPSrvName.c_str());
+	strcat_s(header, BUFFER_SIZE, ">\r\n");
 
 	// From: <SP> <sender>  <SP> "<" <sender-email> ">" <CRLF>
-	if (!m_sMailFrom.size()) throw ECSmtp(ECSmtp::UNDEF_MAIL_FROM);
+	if (!m_sMailFrom.size())
+		throw ECSmtp(ECSmtp::UNDEF_MAIL_FROM);
 
-	strcat_s(header, BUFFER_SIZE,  "From: ");
-	if (m_sNameFrom.size()) strcat_s(header, BUFFER_SIZE,  m_sNameFrom.c_str());
+	strcat_s(header, BUFFER_SIZE, "From: ");
 
-	strcat_s(header, BUFFER_SIZE,  " <");
-	strcat_s(header, BUFFER_SIZE,  m_sMailFrom.c_str());
-	strcat_s(header, BUFFER_SIZE,  ">\r\n");
+	if (m_sNameFrom.size())
+	{
+		if (strcmp(m_sCharSet.c_str(), "UTF-8") == 0)
+		{
+			std::string szFromNameEncoded;
+
+			szFromNameEncoded.append("=?UTF-8?B?");
+			szFromNameEncoded.append(base64_encode(reinterpret_cast<const unsigned char*>(m_sNameFrom.c_str()), static_cast<unsigned int>(m_sNameFrom.size())));
+			szFromNameEncoded.append("?=");
+
+			strcat_s(header, BUFFER_SIZE, szFromNameEncoded.c_str());
+
+			szFromNameEncoded.clear();
+		}
+		else
+		{
+			strcat_s(header, BUFFER_SIZE, "\"");
+			strcat_s(header, BUFFER_SIZE, m_sNameFrom.c_str());
+			strcat_s(header, BUFFER_SIZE, "\"");
+		}
+	}
+	else
+	{
+		if (strcmp(m_sCharSet.c_str(), "UTF-8") == 0)
+		{
+			std::string szFromNameEncoded;
+
+			szFromNameEncoded.append("=?UTF-8?B?");
+			szFromNameEncoded.append(base64_encode(reinterpret_cast<const unsigned char*>(m_sMailFrom.c_str()), static_cast<unsigned int>(m_sMailFrom.size())));
+			szFromNameEncoded.append("?=");
+
+			strcat_s(header, BUFFER_SIZE, szFromNameEncoded.c_str());
+
+			szFromNameEncoded.clear();
+		}
+		else
+		{
+			strcat_s(header, BUFFER_SIZE, "\"");
+			strcat_s(header, BUFFER_SIZE, m_sMailFrom.c_str());
+			strcat_s(header, BUFFER_SIZE, "\"");
+		}
+	}
+
+	strcat_s(header, BUFFER_SIZE, " <");
+	strcat_s(header, BUFFER_SIZE, m_sMailFrom.c_str());
+	strcat_s(header, BUFFER_SIZE, ">\r\n");
 
 	// X-Mailer: <SP> <xmailer-app> <CRLF>
 	if (m_sXMailer.size())
 	{
-		strcat_s(header, BUFFER_SIZE,  "X-Mailer: ");
-		strcat_s(header, BUFFER_SIZE,  m_sXMailer.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
+		strcat_s(header, BUFFER_SIZE, "X-Mailer: ");
+		strcat_s(header, BUFFER_SIZE, m_sXMailer.c_str());
+		strcat_s(header, BUFFER_SIZE, "\r\n");
 	}
 
 	// Reply-To: <SP> <reverse-path> <CRLF>
 	if (m_sReplyTo.size())
 	{
-		strcat_s(header, BUFFER_SIZE,  "Reply-To: ");
-		strcat_s(header, BUFFER_SIZE,  m_sReplyTo.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
+		strcat_s(header, BUFFER_SIZE, "Reply-To: ");
+		strcat_s(header, BUFFER_SIZE, m_sReplyTo.c_str());
+		strcat_s(header, BUFFER_SIZE, "\r\n");
 	}
 
 	// Disposition-Notification-To: <SP> <reverse-path or sender-email> <CRLF>
 	if (m_bReadReceipt)
 	{
-		strcat_s(header, BUFFER_SIZE,  "Disposition-Notification-To: ");
-		if (m_sReplyTo.size()) strcat_s(header, BUFFER_SIZE,  m_sReplyTo.c_str());
-		else strcat_s(header, BUFFER_SIZE,  m_sNameFrom.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
+		strcat_s(header, BUFFER_SIZE, "Disposition-Notification-To: ");
+		if (m_sReplyTo.size()) strcat_s(header, BUFFER_SIZE, m_sReplyTo.c_str());
+		else strcat_s(header, BUFFER_SIZE, m_sNameFrom.c_str());
+		strcat_s(header, BUFFER_SIZE, "\r\n");
 	}
 
 	// X-Priority: <SP> <number> <CRLF>
 	switch (m_iXPriority)
 	{
 	case XPRIORITY_HIGH:
-		strcat_s(header, BUFFER_SIZE,  "X-Priority: 2 (High)\r\n");
+		strcat_s(header, BUFFER_SIZE, "X-Priority: 2 (High)\r\n");
 		break;
 	case XPRIORITY_NORMAL:
-		strcat_s(header, BUFFER_SIZE,  "X-Priority: 3 (Normal)\r\n");
+		strcat_s(header, BUFFER_SIZE, "X-Priority: 3 (Normal)\r\n");
 		break;
 	case XPRIORITY_LOW:
-		strcat_s(header, BUFFER_SIZE,  "X-Priority: 4 (Low)\r\n");
+		strcat_s(header, BUFFER_SIZE, "X-Priority: 4 (Low)\r\n");
 		break;
 	default:
-		strcat_s(header, BUFFER_SIZE,  "X-Priority: 3 (Normal)\r\n");
+		strcat_s(header, BUFFER_SIZE, "X-Priority: 3 (Normal)\r\n");
 	}
 
 	// To: <SP> <remote-user-mail> <CRLF>
-	strcat_s(header, BUFFER_SIZE,  "To: ");
-	strcat_s(header, BUFFER_SIZE,  to.c_str());
-	strcat_s(header, BUFFER_SIZE,  "\r\n");
+	strcat_s(header, BUFFER_SIZE, "To: ");
+	strcat_s(header, BUFFER_SIZE, to.c_str());
+	strcat_s(header, BUFFER_SIZE, "\r\n");
 
 	// Cc: <SP> <remote-user-mail> <CRLF>
 	if (CCRecipients.size())
 	{
-		strcat_s(header, BUFFER_SIZE,  "Cc: ");
-		strcat_s(header, BUFFER_SIZE,  cc.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
-	}
-
-	if (BCCRecipients.size())
-	{
-		strcat_s(header, BUFFER_SIZE,  "Bcc: ");
-		strcat_s(header, BUFFER_SIZE,  bcc.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
+		strcat_s(header, BUFFER_SIZE, "Cc: ");
+		strcat_s(header, BUFFER_SIZE, cc.c_str());
+		strcat_s(header, BUFFER_SIZE, "\r\n");
 	}
 
 	// Subject: <SP> <subject-text> <CRLF>
 	if (!m_sSubject.size())
-		strcat_s(header, BUFFER_SIZE,  "Subject:  ");
+		strcat_s(header, BUFFER_SIZE, "Subject:  ");
 	else
 	{
-		strcat_s(header, BUFFER_SIZE,  "Subject: ");
-		strcat_s(header, BUFFER_SIZE,  m_sSubject.c_str());
+		if (strcmp(m_sCharSet.c_str(), "UTF-8") == 0)
+		{
+			std::string szSubjectEncoded;
+
+			szSubjectEncoded.append("=?UTF-8?B?");
+			szSubjectEncoded.append(base64_encode(reinterpret_cast<const unsigned char*>(m_sSubject.c_str()), static_cast<unsigned int>(m_sSubject.size())));
+			szSubjectEncoded.append("?=");
+
+			strcat_s(header, BUFFER_SIZE, "Subject: ");
+			strcat_s(header, BUFFER_SIZE, szSubjectEncoded.c_str());
+
+			szSubjectEncoded.clear();
+		}
+		else
+		{
+			strcat_s(header, BUFFER_SIZE, "Subject: ");
+			strcat_s(header, BUFFER_SIZE, m_sSubject.c_str());
+		}
 	}
-	strcat_s(header, BUFFER_SIZE,  "\r\n");
+
+	strcat_s(header, BUFFER_SIZE, "\r\n");
 
 	// MIME-Version: <SP> 1.0 <CRLF>
 	strcat_s(header, BUFFER_SIZE, "MIME-Version: 1.0\r\n");
+
 	if (!Attachments.size())
-	{ // no attachments
-		if (m_bHTML) strcat_s(header, BUFFER_SIZE,  "Content-Type: text/html; charset=\"");
-		else strcat_s(header, BUFFER_SIZE,  "Content-type: text/plain; charset=\"");
-		strcat_s(header, BUFFER_SIZE,  m_sCharSet.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\"\r\n");
-		strcat_s(header, BUFFER_SIZE,  "Content-Transfer-Encoding: 7bit\r\n");
-		strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
+	{ // No attachments
+		if (m_bHTML)
+		{
+			strcat_s(header, BUFFER_SIZE, "Content-Type: multipart/alternative;\r\n\tboundary=\"");
+			strcat_s(header, BUFFER_SIZE, SMTP_BOUNDARY_ALTERNATIVE);
+			strcat_s(header, BUFFER_SIZE, "\"\r\n");
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+
+			strcat_s(header, BUFFER_SIZE, "This is a multi-part message in MIME format.\r\n");
+
+			strcat_s(header, BUFFER_SIZE, "--");
+			strcat_s(header, BUFFER_SIZE, SMTP_BOUNDARY_ALTERNATIVE);
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+
+			strcat_s(header, BUFFER_SIZE, "Content-Type: text/plain; charset=\"");
+			strcat_s(header, BUFFER_SIZE, m_sCharSet.c_str());
+			strcat_s(header, BUFFER_SIZE, "\"\r\n");
+			strcat_s(header, BUFFER_SIZE, "Content-Transfer-Encoding: ");
+			strcat_s(header, BUFFER_SIZE, m_sCharEncoding.c_str());
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+		}
+		else
+		{
+			strcat_s(header, BUFFER_SIZE, "Content-Type: text/plain; charset=\"");
+			strcat_s(header, BUFFER_SIZE, m_sCharSet.c_str());
+			strcat_s(header, BUFFER_SIZE, "\"\r\n");
+			strcat_s(header, BUFFER_SIZE, "Content-Transfer-Encoding: ");
+			strcat_s(header, BUFFER_SIZE, m_sCharEncoding.c_str());
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+		}
 	}
 	else
 	{ // there is one or more attachments
-		strcat_s(header, BUFFER_SIZE,  "Content-Type: multipart/mixed; boundary=\"");
-		strcat_s(header, BUFFER_SIZE,  BOUNDARY_TEXT);
-		strcat_s(header, BUFFER_SIZE,  "\"\r\n");
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
-		// first goes text message
-		strcat_s(SendBuf,BUFFER_SIZE,  "--");
-		strcat_s(SendBuf,BUFFER_SIZE,  BOUNDARY_TEXT);
-		strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
-		if (m_bHTML) strcat_s(SendBuf,BUFFER_SIZE,  "Content-type: text/html; charset=");
-		else strcat_s(SendBuf,BUFFER_SIZE,  "Content-type: text/plain; charset=");
-		strcat_s(header, BUFFER_SIZE,  m_sCharSet.c_str());
-		strcat_s(header, BUFFER_SIZE,  "\r\n");
-		strcat_s(SendBuf,BUFFER_SIZE,  "Content-Transfer-Encoding: 7bit\r\n");
-		strcat_s(SendBuf,BUFFER_SIZE,  "\r\n");
+		strcat_s(header, BUFFER_SIZE, "Content-Type: multipart/mixed;\r\n\tboundary=\"");
+		strcat_s(header, BUFFER_SIZE, SMTP_BOUNDARY_MIXED);
+		strcat_s(header, BUFFER_SIZE, "\"\r\n");
+		strcat_s(header, BUFFER_SIZE, "\r\n");
+
+		strcat_s(header, BUFFER_SIZE, "This is a multi-part message in MIME format.\r\n");
+
+		strcat_s(header, BUFFER_SIZE, "--");
+		strcat_s(header, BUFFER_SIZE, SMTP_BOUNDARY_MIXED);
+		strcat_s(header, BUFFER_SIZE, "\r\n");
+
+		if (m_bHTML)
+		{
+			strcat_s(header, BUFFER_SIZE, "Content-Type: multipart/alternative;\r\n\tboundary=\"");
+			strcat_s(header, BUFFER_SIZE, SMTP_BOUNDARY_ALTERNATIVE);
+			strcat_s(header, BUFFER_SIZE, "\"\r\n");
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+
+			strcat_s(header, BUFFER_SIZE, "--");
+			strcat_s(header, BUFFER_SIZE, SMTP_BOUNDARY_ALTERNATIVE);
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+
+			strcat_s(header, BUFFER_SIZE, "Content-Type: text/plain; charset=\"");
+			strcat_s(header, BUFFER_SIZE, m_sCharSet.c_str());
+			strcat_s(header, BUFFER_SIZE, "\"\r\n");
+			strcat_s(header, BUFFER_SIZE, "Content-Transfer-Encoding: ");
+			strcat_s(header, BUFFER_SIZE, m_sCharEncoding.c_str());
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+		}
+		else
+		{
+			strcat_s(header, BUFFER_SIZE, "Content-Type: text/plain; charset=\"");
+			strcat_s(header, BUFFER_SIZE, m_sCharSet.c_str());
+			strcat_s(header, BUFFER_SIZE, "\"\r\n");
+			strcat_s(header, BUFFER_SIZE, "Content-Transfer-Encoding: ");
+			strcat_s(header, BUFFER_SIZE, m_sCharEncoding.c_str());
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+			strcat_s(header, BUFFER_SIZE, "\r\n");
+		}
 	}
 
 	// done
@@ -1443,14 +1922,6 @@ void CSmtp::FormatHeader(char* header)
 // USES GLOBAL: RecvBuf
 // MODIFIES GL: RecvBuf
 //     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-07
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// MODIFICATION: Receives data as much as possible. Another function ReceiveResponse
-//               will ensure the received data contains '\n'
-// AUTHOR/DATE:  John Tang 2010-08-01
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::ReceiveData(Command_Entry* pEntry)
 {
@@ -1459,6 +1930,7 @@ void CSmtp::ReceiveData(Command_Entry* pEntry)
 		ReceiveData_SSL(m_ssl, pEntry);
 		return;
 	}
+
 	int res = 0;
 	fd_set fdread;
 	timeval time;
@@ -1475,7 +1947,7 @@ void CSmtp::ReceiveData(Command_Entry* pEntry)
 
 	FD_SET(hSocket, &fdread);
 
-	if ((res = select(hSocket + 1, &fdread, NULL, NULL, &time)) == SOCKET_ERROR)
+	if ((res = select(0, &fdread, NULL, NULL, &time)) == SOCKET_ERROR)
 	{
 		FD_CLR(hSocket, &fdread);
 		throw ECSmtp(ECSmtp::WSA_SELECT);
@@ -1491,6 +1963,7 @@ void CSmtp::ReceiveData(Command_Entry* pEntry)
 	if (FD_ISSET(hSocket, &fdread))
 	{
 		res = recv(hSocket, RecvBuf, BUFFER_SIZE, 0);
+
 		if (res == SOCKET_ERROR)
 		{
 			FD_CLR(hSocket, &fdread);
@@ -1500,6 +1973,7 @@ void CSmtp::ReceiveData(Command_Entry* pEntry)
 
 	FD_CLR(hSocket, &fdread);
 	RecvBuf[res] = 0;
+
 	if (res == 0)
 	{
 		throw ECSmtp(ECSmtp::CONNECTION_CLOSED);
@@ -1513,8 +1987,6 @@ void CSmtp::ReceiveData(Command_Entry* pEntry)
 // USES GLOBAL: SendBuf
 // MODIFIES GL: none
 //     RETURNS: void
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::SendData(Command_Entry* pEntry)
 {
@@ -1523,7 +1995,9 @@ void CSmtp::SendData(Command_Entry* pEntry)
 		SendData_SSL(m_ssl, pEntry);
 		return;
 	}
-	int idx = 0, res, nLeft = strlen(SendBuf);
+
+	std::string szTempDot;
+	int idx = 0, res, nLeft = static_cast<int>(strlen(SendBuf));
 	fd_set fdwrite;
 	timeval time;
 
@@ -1541,7 +2015,7 @@ void CSmtp::SendData(Command_Entry* pEntry)
 
 		FD_SET(hSocket, &fdwrite);
 
-		if ((res = select(hSocket + 1, NULL, &fdwrite, NULL, &time)) == SOCKET_ERROR)
+		if ((res = select(0, NULL, &fdwrite, NULL, &time)) == SOCKET_ERROR)
 		{
 			FD_CLR(hSocket, &fdwrite);
 			throw ECSmtp(ECSmtp::WSA_SELECT);
@@ -1556,18 +2030,27 @@ void CSmtp::SendData(Command_Entry* pEntry)
 
 		if (res && FD_ISSET(hSocket, &fdwrite))
 		{
-			res = send(hSocket, &SendBuf[idx], nLeft, 0);
+			if (*&SendBuf[0] == '.')
+			{
+				szTempDot.append(".");
+				szTempDot.append(&SendBuf[idx]);
+				res = send(hSocket, szTempDot.c_str(), nLeft + 1, 0);
+				szTempDot.clear();
+			}
+			else
+				res = send(hSocket, &SendBuf[idx], nLeft, 0);
+
 			if (res == SOCKET_ERROR || res == 0)
 			{
 				FD_CLR(hSocket, &fdwrite);
 				throw ECSmtp(ECSmtp::WSA_SEND);
 			}
+
 			nLeft -= res;
 			idx += res;
 		}
 	}
 
-	OutputDebugStringA(SendBuf);
 	FD_CLR(hSocket, &fdwrite);
 }
 
@@ -1578,8 +2061,6 @@ void CSmtp::SendData(Command_Entry* pEntry)
 // USES GLOBAL: m_pcLocalHostName
 // MODIFIES GL: m_oError, m_pcLocalHostName 
 //     RETURNS: socket of the remote service
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 const char* CSmtp::GetLocalHostName()
 {
@@ -1593,12 +2074,10 @@ const char* CSmtp::GetLocalHostName()
 // USES GLOBAL: Recipients
 // MODIFIES GL: none 
 //     RETURNS: number of recipents
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 unsigned int CSmtp::GetRecipientCount() const
 {
-	return Recipients.size();
+	return static_cast<unsigned int>(Recipients.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1608,12 +2087,10 @@ unsigned int CSmtp::GetRecipientCount() const
 // USES GLOBAL: BCCRecipients
 // MODIFIES GL: none 
 //     RETURNS: number of bcc-recipents
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 unsigned int CSmtp::GetBCCRecipientCount() const
 {
-	return BCCRecipients.size();
+	return static_cast<unsigned int>(BCCRecipients.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1623,12 +2100,10 @@ unsigned int CSmtp::GetBCCRecipientCount() const
 // USES GLOBAL: CCRecipients
 // MODIFIES GL: none 
 //     RETURNS: number of cc-recipents
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 unsigned int CSmtp::GetCCRecipientCount() const
 {
-	return CCRecipients.size();
+	return static_cast<unsigned int>(CCRecipients.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1638,8 +2113,6 @@ unsigned int CSmtp::GetCCRecipientCount() const
 // USES GLOBAL: m_sReplyTo
 // MODIFIES GL: none 
 //     RETURNS: m_sReplyTo string
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 const char* CSmtp::GetReplyTo() const
 {
@@ -1653,8 +2126,6 @@ const char* CSmtp::GetReplyTo() const
 // USES GLOBAL: m_sMailFrom
 // MODIFIES GL: none 
 //     RETURNS: m_sMailFrom string
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 const char* CSmtp::GetMailFrom() const
 {
@@ -1668,8 +2139,6 @@ const char* CSmtp::GetMailFrom() const
 // USES GLOBAL: m_sNameFrom
 // MODIFIES GL: none 
 //     RETURNS: m_sNameFrom string
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 const char* CSmtp::GetSenderName() const
 {
@@ -1683,8 +2152,6 @@ const char* CSmtp::GetSenderName() const
 // USES GLOBAL: m_sSubject
 // MODIFIES GL: none 
 //     RETURNS: m_sSubject string
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 const char* CSmtp::GetSubject() const
 {
@@ -1698,8 +2165,6 @@ const char* CSmtp::GetSubject() const
 // USES GLOBAL: m_pcXMailer
 // MODIFIES GL: none 
 //     RETURNS: m_pcXMailer string
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 const char* CSmtp::GetXMailer() const
 {
@@ -1713,8 +2178,6 @@ const char* CSmtp::GetXMailer() const
 // USES GLOBAL: m_iXPriority
 // MODIFIES GL: none 
 //     RETURNS: CSmptXPriority m_pcXMailer
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 CSmptXPriority CSmtp::GetXPriority() const
 {
@@ -1730,7 +2193,7 @@ const char* CSmtp::GetMsgLineText(unsigned int Line) const
 
 unsigned int CSmtp::GetMsgLines() const
 {
-	return MsgBody.size();
+	return static_cast<unsigned int>(MsgBody.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1740,10 +2203,8 @@ unsigned int CSmtp::GetMsgLines() const
 // USES GLOBAL: m_sCharSet
 // MODIFIES GL: m_sCharSet
 //     RETURNS: none
-//      AUTHOR: David Johns
-// AUTHOR/DATE: DJ 2012-11-03
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetCharSet(const char* sCharSet)
+void CSmtp::SetCharSet(const char *sCharSet)
 {
 	m_sCharSet = sCharSet;
 }
@@ -1755,10 +2216,8 @@ void CSmtp::SetCharSet(const char* sCharSet)
 // USES GLOBAL: m_sLocalHostName
 // MODIFIES GL: m_sLocalHostName
 //     RETURNS: none
-//      AUTHOR: jerko
-// AUTHOR/DATE: J 2011-12-01
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetLocalHostName(const char* sLocalHostName)
+void CSmtp::SetLocalHostName(const char *sLocalHostName)
 {
 	m_sLocalHostName = sLocalHostName;
 }
@@ -1771,8 +2230,6 @@ void CSmtp::SetLocalHostName(const char* sLocalHostName)
 // USES GLOBAL: none
 // MODIFIES GL: m_iXPriority 
 //     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::SetXPriority(CSmptXPriority priority)
 {
@@ -1786,11 +2243,8 @@ void CSmtp::SetXPriority(CSmptXPriority priority)
 // USES GLOBAL: m_sReplyTo
 // MODIFIES GL: m_sReplyTo
 //     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetReplyTo(const char* ReplyTo)
+void CSmtp::SetReplyTo(const char *ReplyTo)
 {
 	m_sReplyTo = ReplyTo;
 }
@@ -1802,8 +2256,6 @@ void CSmtp::SetReplyTo(const char* ReplyTo)
 // USES GLOBAL: m_bReadReceipt
 // MODIFIES GL: m_bReadReceipt
 //     RETURNS: none
-//      AUTHOR: David Johns
-// AUTHOR/DATE: DRJ 2012-11-03
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::SetReadReceipt(bool requestReceipt/*=true*/)
 {
@@ -1816,12 +2268,9 @@ void CSmtp::SetReadReceipt(bool requestReceipt/*=true*/)
 //   ARGUMENTS: const char *EMail - sender's e-mail
 // USES GLOBAL: m_sMailFrom
 // MODIFIES GL: m_sMailFrom
-//     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
+//     RETURNS: none	
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetSenderMail(const char* EMail)
+void CSmtp::SetSenderMail(const char *EMail)
 {
 	m_sMailFrom = EMail;
 }
@@ -1832,12 +2281,9 @@ void CSmtp::SetSenderMail(const char* EMail)
 //   ARGUMENTS: const char *Name - sender's name
 // USES GLOBAL: m_sNameFrom
 // MODIFIES GL: m_sNameFrom
-//     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
+//     RETURNS: none	
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetSenderName(const char* Name)
+void CSmtp::SetSenderName(const char *Name)
 {
 	m_sNameFrom = Name;
 }
@@ -1849,11 +2295,8 @@ void CSmtp::SetSenderName(const char* Name)
 // USES GLOBAL: m_sSubject
 // MODIFIES GL: m_sSubject
 //     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetSubject(const char* Subject)
+void CSmtp::SetSubject(const char *Subject)
 {
 	m_sSubject = Subject;
 }
@@ -1864,12 +2307,9 @@ void CSmtp::SetSubject(const char* Subject)
 //   ARGUMENTS: const char *XMailer - programe name
 // USES GLOBAL: m_sXMailer
 // MODIFIES GL: m_sXMailer
-//     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
+//     RETURNS: none	
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetXMailer(const char* XMailer)
+void CSmtp::SetXMailer(const char *XMailer)
 {
 	m_sXMailer = XMailer;
 }
@@ -1881,11 +2321,8 @@ void CSmtp::SetXMailer(const char* XMailer)
 // USES GLOBAL: m_sLogin
 // MODIFIES GL: m_sLogin
 //     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetLogin(const char* Login)
+void CSmtp::SetLogin(const char *Login)
 {
 	m_sLogin = Login;
 }
@@ -1897,11 +2334,8 @@ void CSmtp::SetLogin(const char* Login)
 // USES GLOBAL: m_sPassword
 // MODIFIES GL: m_sPassword
 //     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JP 2010-07-08
 ////////////////////////////////////////////////////////////////////////////////
-void CSmtp::SetPassword(const char* Password)
+void CSmtp::SetPassword(const char *Password)
 {
 	m_sPassword = Password;
 }
@@ -1914,9 +2348,6 @@ void CSmtp::SetPassword(const char* Password)
 // USES GLOBAL: m_sSMTPSrvName
 // MODIFIES GL: m_sSMTPSrvName 
 //     RETURNS: none
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
-//							JO 2010-0708
 ////////////////////////////////////////////////////////////////////////////////
 void CSmtp::SetSMTPServer(const char* SrvName, const unsigned short SrvPort, bool authenticate)
 {
@@ -1932,8 +2363,6 @@ void CSmtp::SetSMTPServer(const char* SrvName, const unsigned short SrvPort, boo
 // USES GLOBAL: none
 // MODIFIES GL: none 
 //     RETURNS: error string
-//      AUTHOR: Jakub Piwowarczyk
-// AUTHOR/DATE: JP 2010-01-28
 ////////////////////////////////////////////////////////////////////////////////
 std::string ECSmtp::GetErrorText() const
 {
@@ -1942,110 +2371,194 @@ std::string ECSmtp::GetErrorText() const
 	case ECSmtp::CSMTP_NO_ERROR:
 		return "";
 	case ECSmtp::WSA_STARTUP:
-		return "Unable to initialise winsock2";
+		return "SMTP - WSA_STARTUP - Could not init WinSock2";
 	case ECSmtp::WSA_VER:
-		return "Wrong version of the winsock2";
+		return "SMTP - WSA_VER - No matching version of WinSock2";
 	case ECSmtp::WSA_SEND:
-		return "Function send() failed";
+		return "SMTP - WSA_SEND - Error calling send()";
 	case ECSmtp::WSA_RECV:
-		return "Function recv() failed";
+		return "SMTP - WSA_RECV - Error calling recv()";
 	case ECSmtp::WSA_CONNECT:
-		return "Function connect failed";
+		return "SMTP - WSA_CONNECT - Error calling connect()";
 	case ECSmtp::WSA_GETHOSTBY_NAME_ADDR:
-		return "Unable to determine remote server";
+		return "SMTP - WSA_GETHOSTBY_NAME_ADDR - Could not resolve remote server";
 	case ECSmtp::WSA_INVALID_SOCKET:
-		return "Invalid winsock2 socket";
+		return "SMTP - WSA_INVALID_SOCKET - WinSock2 not valid";
 	case ECSmtp::WSA_HOSTNAME:
-		return "Function hostname() failed";
+		return "SMTP - WSA_HOSTNAME - Error calling hostname()";
 	case ECSmtp::WSA_IOCTLSOCKET:
-		return "Function ioctlsocket() failed";
+		return "SMTP - WSA_IOCTLSOCKET - Error calling ioctlsocket()";
+	case ECSmtp::WSA_SELECT:
+		return "SMTP - WSA_SELECT - Network error";
 	case ECSmtp::BAD_IPV4_ADDR:
-		return "Improper IPv4 address";
+		return "SMTP - BAD_IPV4_ADDR - Incorrect IPv4 address";
 	case ECSmtp::UNDEF_MSG_HEADER:
-		return "Undefined message header";
+		return "SMTP - UNDEF_MSG_HEADER - Undefined message header";
 	case ECSmtp::UNDEF_MAIL_FROM:
-		return "Undefined mail sender";
+		return "SMTP - UNDEF_MAIL_FROM - Sender not defined";
 	case ECSmtp::UNDEF_SUBJECT:
-		return "Undefined message subject";
+		return "SMTP - UNDEF_SUBJECT - Subject not defined";
 	case ECSmtp::UNDEF_RECIPIENTS:
-		return "Undefined at least one reciepent";
-	case ECSmtp::UNDEF_RECIPIENT_MAIL:
-		return "Undefined recipent mail";
+		return "SMTP - UNDEF_RECIPIENTS - Recipient not defined";
 	case ECSmtp::UNDEF_LOGIN:
-		return "Undefined user login";
+		return "SMTP - UNDEF_LOGIN - User not defined";
 	case ECSmtp::UNDEF_PASSWORD:
-		return "Undefined user password";
+		return "SMTP - UNDEF_PASSWORD - Password not defined";
+	case  ECSmtp::BAD_DECODE_CHALLENGE:
+		return "SMTP - BAD_DECODE_CHALLENGE - Failed decode challenge";
 	case ECSmtp::BAD_LOGIN_PASSWORD:
-		return "Invalid user login or password";
+		return "SMTP - BAD_LOGIN_PASSWORD - Wrong username or password";
 	case ECSmtp::BAD_DIGEST_RESPONSE:
-		return "Server returned a bad digest MD5 response";
+		return "SMTP - BAD_DIGEST_RESPONSE - Incorrect MD5 response from server";
 	case ECSmtp::BAD_SERVER_NAME:
-		return "Unable to determine server name for digest MD5 response";
+		return "SMTP - BAD_SERVER_NAME - The server name could not be determined from the MD5 response";
+	case ECSmtp::UNDEF_RECIPIENT_MAIL:
+		return "SMTP - UNDEF_RECIPIENT_MAIL - Recipient-Mail not defined";
 	case ECSmtp::COMMAND_MAIL_FROM:
-		return "Server returned error after sending MAIL FROM";
+		return "SMTP - COMMAND_MAIL_FROM - Error command FROM";
 	case ECSmtp::COMMAND_EHLO:
-		return "Server returned error after sending EHLO";
+		return "SMTP - COMMAND_EHLO - Error command EHLO";
 	case ECSmtp::COMMAND_AUTH_PLAIN:
-		return "Server returned error after sending AUTH PLAIN";
+		return "SMTP - COMMAND_AUTH_PLAIN - Error command AUTH PLAIN";
 	case ECSmtp::COMMAND_AUTH_LOGIN:
-		return "Server returned error after sending AUTH LOGIN";
+		return "SMTP - COMMAND_AUTH_LOGIN - Error command AUTH LOGIN";
 	case ECSmtp::COMMAND_AUTH_CRAMMD5:
-		return "Server returned error after sending AUTH CRAM-MD5";
+		return "SMTP - COMMAND_AUTH_CRAMMD5 - Error command AUTH CRAM-MD5";
 	case ECSmtp::COMMAND_AUTH_DIGESTMD5:
-		return "Server returned error after sending AUTH DIGEST-MD5";
+		return "SMTP - COMMAND_AUTH_DIGESTMD5 - Error command AUTH DIGEST-MD5";
 	case ECSmtp::COMMAND_DIGESTMD5:
-		return "Server returned error after sending MD5 DIGEST";
+		return "SMTP - COMMAND_DIGESTMD5 - Error command MD5 DIGEST";
 	case ECSmtp::COMMAND_DATA:
-		return "Server returned error after sending DATA";
+		return "SMTP - COMMAND_DATA - Error command DATA";
 	case ECSmtp::COMMAND_QUIT:
-		return "Server returned error after sending QUIT";
+		return "SMTP - COMMAND_QUIT - Error command QUIT";
 	case ECSmtp::COMMAND_RCPT_TO:
-		return "Server returned error after sending RCPT TO";
+		return "SMTP - COMMAND_RCPT_TO - Error command RCPT TO";
 	case ECSmtp::MSG_BODY_ERROR:
-		return "Error in message body";
+		return "SMTP - MSG_BODY_ERROR - Error in mailtext";
 	case ECSmtp::CONNECTION_CLOSED:
-		return "Server has closed the connection";
+		return "SMTP - CONNECTION_CLOSED - The server has closed the connection";
 	case ECSmtp::SERVER_NOT_READY:
-		return "Server is not ready";
+		return "SMTP - SERVER_NOT_READY - The server is not ready";
 	case ECSmtp::SERVER_NOT_RESPONDING:
-		return "Server not responding";
+		return "SMTP - SERVER_NOT_RESPONDING - The server is not responding";
+	case ECSmtp::SELECT_TIMEOUT:
+		return "SMTP - SELECT_TIMEOUT - Timeout";
 	case ECSmtp::FILE_NOT_EXIST:
-		return "Attachment file does not exist";
+		return "SMTP - FILE_NOT_EXIST - File does not exist";
 	case ECSmtp::MSG_TOO_BIG:
-		return "Message is too big";
+		return "SMTP - MSG_TOO_BIG - The message exceeds the allowed limit of 5MB";
 	case ECSmtp::BAD_LOGIN_PASS:
-		return "Bad login or password";
+		return "SMTP - BAD_LOGIN_PASS - Wrong username or password";
 	case ECSmtp::UNDEF_XYZ_RESPONSE:
-		return "Undefined xyz SMTP response";
+		return "SMTP - UNDEF_XYZ_RESPONSE - Undefined SMTP xyz reply";
 	case ECSmtp::LACK_OF_MEMORY:
-		return "Lack of memory";
+		return "SMTP - LACK_OF_MEMORY - Memory error";
 	case ECSmtp::TIME_ERROR:
-		return "time() error";
+		return "SMTP - TIME_ERROR - Error calling time()";
 	case ECSmtp::RECVBUF_IS_EMPTY:
-		return "RecvBuf is empty";
+		return "SMTP - RECVBUF_IS_EMPTY - Receive-Buffer is empty";
 	case ECSmtp::SENDBUF_IS_EMPTY:
-		return "SendBuf is empty";
+		return "SMTP - SENDBUF_IS_EMPTY - Send-Buffer is empty";
 	case ECSmtp::OUT_OF_MSG_RANGE:
-		return "Specified line number is out of message size";
+		return "SMTP - OUT_OF_MSG_RANGE - The current line is outside the message size";
 	case ECSmtp::COMMAND_EHLO_STARTTLS:
-		return "Server returned error after sending STARTTLS";
+		return "SMTP - COMMAND_EHLO_STARTTLS - Error command STARTTLS";
 	case ECSmtp::SSL_PROBLEM:
-		return "SSL problem";
+		return "SMTP - SSL_PROBLEM - Error SSL";
 	case ECSmtp::COMMAND_DATABLOCK:
-		return "Failed to send data block";
+		return "SMTP - COMMAND_DATABLOCK - Data block sending error";
 	case ECSmtp::STARTTLS_NOT_SUPPORTED:
-		return "The STARTTLS command is not supported by the server";
+		return "SMTP - STARTTLS_NOT_SUPPORTED - STARTTLS not supported by server";
 	case ECSmtp::LOGIN_NOT_SUPPORTED:
-		return "AUTH LOGIN is not supported by the server";
+		return "SMTP - LOGIN_NOT_SUPPORTED - AUTH LOGIN not supported by server";
+	case ECSmtp::ERRNO_EPERM:
+		return "SMTP - ERRNO_EPERM - Operation not permitted";
+	case ECSmtp::ERRNO_ENOENT:
+		return "SMTP - ERRNO_EPERM - No such file or directory";
+	case ECSmtp::ERRNO_ESRCH:
+		return "SMTP - ERRNO_ESRCH - No such process";
+	case ECSmtp::ERRNO_EINTR:
+		return "SMTP - ERRNO_EINTR - Interrupted function";
+	case ECSmtp::ERRNO_EIO:
+		return "SMTP - ERRNO_EIO - I/O error";
+	case ECSmtp::ERRNO_ENXIO:
+		return "SMTP - ERRNO_ENXIO - No such device or address";
+	case ECSmtp::ERRNO_E2BIG:
+		return "SMTP - ERRNO_E2BIG - Argument list too long";
+	case ECSmtp::ERRNO_ENOEXEC:
+		return "SMTP - ERRNO_ENOEXEC - Exec format error";
+	case ECSmtp::ERRNO_EBADF:
+		return "SMTP - ERRNO_EBADF - Bad file number";
+	case ECSmtp::ERRNO_ECHILD:
+		return "SMTP - ERRNO_ECHILD - No spawned processes";
+	case ECSmtp::ERRNO_EAGAIN:
+		return "SMTP - ERRNO_EAGAIN - No more processes or not enough memory or maximum nesting level reached";
+	case ECSmtp::ERRNO_ENOMEM:
+		return "SMTP - ERRNO_ENOMEM - Not enough memory";
+	case ECSmtp::ERRNO_EACCES:
+		return "SMTP - ERRNO_EACCES - Permission denied";
+	case ECSmtp::ERRNO_EFAULT:
+		return "SMTP - ERRNO_EFAULT - Bad address";
+	case ECSmtp::ERRNO_EBUSY:
+		return "SMTP - ERRNO_EBUSY - Device or resource busy";
+	case ECSmtp::ERRNO_EEXIST:
+		return "SMTP - ERRNO_EEXIST - File exists";
+	case ECSmtp::ERRNO_EXDEV:
+		return "SMTP - ERRNO_EXDEV - Cross-device link";
+	case ECSmtp::ERRNO_ENODEV:
+		return "SMTP - ERRNO_ENODEV - No such device";
+	case ECSmtp::ERRNO_ENOTDIR:
+		return "SMTP - ERRNO_ENOTDIR - Not a directory";
+	case ECSmtp::ERRNO_EISDIR:
+		return "SMTP - ERRNO_EISDIR - Is a directory";
+	case ECSmtp::ERRNO_EINVAL:
+		return "SMTP - ERRNO_EINVAL - Invalid argument";
+	case ECSmtp::ERRNO_ENFILE:
+		return "SMTP - ERRNO_ENFILE - Too many files open in system";
+	case ECSmtp::ERRNO_EMFILE:
+		return "SMTP - ERRNO_EMFILE - Too many open files";
+	case ECSmtp::ERRNO_ENOTTY:
+		return "SMTP - ERRNO_ENOTTY - Inappropriate I/O control operation";
+	case ECSmtp::ERRNO_EFBIG:
+		return "SMTP - ERRNO_EFBIG - File too large";
+	case ECSmtp::ERRNO_ENOSPC:
+		return "SMTP - ERRNO_ENOSPC - No space left on device";
+	case ECSmtp::ERRNO_ESPIPE:
+		return "SMTP - ERRNO_ESPIPE - Invalid seek";
+	case ECSmtp::ERRNO_EROFS:
+		return "SMTP - ERRNO_EROFS - Read-only file system";
+	case ECSmtp::ERRNO_EMLINK:
+		return "SMTP - ERRNO_EMLINK - Too many links";
+	case ECSmtp::ERRNO_EPIPE:
+		return "SMTP - ERRNO_EPIPE - Broken pipe";
+	case ECSmtp::ERRNO_EDOM:
+		return "SMTP - ERRNO_EDOM - Math argument";
+	case ECSmtp::ERRNO_ERANGE:
+		return "SMTP - ERRNO_ERANGE - Result too large";
+	case ECSmtp::ERRNO_EDEADLK:
+		return "SMTP - ERRNO_EDEADLK - Resource deadlock would occur";
+	case ECSmtp::ERRNO_ENAMETOOLONG:
+		return "SMTP - ERRNO_ENAMETOOLONG - Filename too long";
+	case ECSmtp::ERRNO_ENOLCK:
+		return "SMTP - ERRNO_ENOLCK - No locks available";
+	case ECSmtp::ERRNO_ENOSYS:
+		return "SMTP - ERRNO_ENOSYS - Function not supported";
+	case ECSmtp::ERRNO_ENOTEMPTY:
+		return "SMTP - ERRNO_ENOTEMPTY - Directory not empty";
+	case ECSmtp::ERRNO_EILSEQ:
+		return "SMTP - ERRNO_EILSEQ - Illegal byte sequence";
+	case ECSmtp::ERRNO_STRUNCATE:
+		return "SMTP - ERRNO_STRUNCATE - String was truncated";
 	default:
-		return "Undefined error id";
+		return "SMTP - Undefined error Id";
 	}
 }
 
 void CSmtp::SayHello()
 {
 	Command_Entry* pEntry = FindCommandEntry(command_EHLO);
-	snprintf(SendBuf, BUFFER_SIZE, "EHLO %s\r\n", GetLocalHostName() != NULL ? m_sLocalHostName.c_str() : "domain");
+	sprintf_s(SendBuf, BUFFER_SIZE, "EHLO %s\r\n", GetLocalHostName());
 	SendData(pEntry);
 	ReceiveResponse(pEntry);
 	m_bConnected = true;
@@ -2057,7 +2570,7 @@ void CSmtp::SayQuit()
 
 	Command_Entry* pEntry = FindCommandEntry(command_QUIT);
 	// QUIT <CRLF>
-	snprintf(SendBuf, BUFFER_SIZE, "QUIT\r\n");
+	strcpy_s(SendBuf, BUFFER_SIZE, "QUIT\r\n");
 	m_bConnected = false;
 	SendData(pEntry);
 	ReceiveResponse(pEntry);
@@ -2069,8 +2582,9 @@ void CSmtp::StartTls()
 	{
 		throw ECSmtp(ECSmtp::STARTTLS_NOT_SUPPORTED);
 	}
+
 	Command_Entry* pEntry = FindCommandEntry(command_STARTTLS);
-	snprintf(SendBuf, BUFFER_SIZE, "STARTTLS\r\n");
+	strcpy_s(SendBuf, BUFFER_SIZE, "STARTTLS\r\n");
 	SendData(pEntry);
 	ReceiveResponse(pEntry);
 
@@ -2109,7 +2623,7 @@ void CSmtp::ReceiveData_SSL(SSL* ssl, Command_Entry* pEntry)
 			FD_SET(hSocket, &fdwrite);
 		}
 
-		if ((res = select(hSocket + 1, &fdread, &fdwrite, NULL, &time)) == SOCKET_ERROR)
+		if ((res = select(0, &fdread, &fdwrite, NULL, &time)) == SOCKET_ERROR)
 		{
 			FD_ZERO(&fdread);
 			FD_ZERO(&fdwrite);
@@ -2131,21 +2645,35 @@ void CSmtp::ReceiveData_SSL(SSL* ssl, Command_Entry* pEntry)
 				read_blocked_on_write = 0;
 
 				const int buff_len = 1024;
-				char buff[buff_len];
+
+				char* buff;
+
+				if ((buff = new char[buff_len]) == NULL)
+					throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
 
 				res = SSL_read(ssl, buff, buff_len);
 
 				int ssl_err = SSL_get_error(ssl, res);
+
 				if (ssl_err == SSL_ERROR_NONE)
 				{
 					if (offset + res > BUFFER_SIZE - 1)
 					{
 						FD_ZERO(&fdread);
 						FD_ZERO(&fdwrite);
+
+						delete[] buff;
+						buff = NULL;
+
 						throw ECSmtp(ECSmtp::LACK_OF_MEMORY);
 					}
-					memcpy(RecvBuf + offset, buff, res);
+
+					strncpy_s(RecvBuf + offset, BUFFER_SIZE, buff, res);
+
+					delete[] buff;
+					buff = NULL;
 					offset += res;
+
 					if (SSL_pending(ssl))
 					{
 						continue;
@@ -2159,10 +2687,14 @@ void CSmtp::ReceiveData_SSL(SSL* ssl, Command_Entry* pEntry)
 				else if (ssl_err == SSL_ERROR_ZERO_RETURN)
 				{
 					bFinish = true;
+					delete[] buff;
+					buff = NULL;
 					break;
 				}
 				else if (ssl_err == SSL_ERROR_WANT_READ)
 				{
+					delete[] buff;
+					buff = NULL;
 					break;
 				}
 				else if (ssl_err == SSL_ERROR_WANT_WRITE)
@@ -2175,12 +2707,16 @@ void CSmtp::ReceiveData_SSL(SSL* ssl, Command_Entry* pEntry)
 					writeable but reinitiate the read
 					when it is */
 					read_blocked_on_write = 1;
+					delete[] buff;
+					buff = NULL;
 					break;
 				}
 				else
 				{
 					FD_ZERO(&fdread);
 					FD_ZERO(&fdwrite);
+					delete[] buff;
+					buff = NULL;
 					throw ECSmtp(ECSmtp::SSL_PROBLEM);
 				}
 			}
@@ -2190,6 +2726,7 @@ void CSmtp::ReceiveData_SSL(SSL* ssl, Command_Entry* pEntry)
 	FD_ZERO(&fdread);
 	FD_ZERO(&fdwrite);
 	RecvBuf[offset] = 0;
+
 	if (offset == 0)
 	{
 		throw ECSmtp(ECSmtp::CONNECTION_CLOSED);
@@ -2201,13 +2738,28 @@ void CSmtp::ReceiveResponse(Command_Entry* pEntry)
 	std::string line;
 	int reply_code = 0;
 	bool bFinish = false;
+
 	while (!bFinish)
 	{
 		ReceiveData(pEntry);
+
 		line.append(RecvBuf);
 		size_t len = line.length();
 		size_t begin = 0;
 		size_t offset = 0;
+
+		std::cout << RecvBuf;
+
+		if (pEntry->command == command_INIT)
+		{
+			std::string::size_type bErrorFound = line.rfind("220");
+
+			if (line.npos == bErrorFound)
+			{
+				line.clear();
+				throw ECSmtp(pEntry->error);
+			}
+		}
 
 		while (1) // loop for all lines
 		{
@@ -2222,6 +2774,7 @@ void CSmtp::ReceiveResponse(Command_Entry* pEntry)
 				// see if this is the last line
 				// the last line must match the pattern: XYZ<SP>*<CRLF> or XYZ<CRLF> where XYZ is a string of 3 digits 
 				offset += 2; // skip <CRLF>
+
 				if (offset - begin >= 5)
 				{
 					if (isdigit(line[begin]) && isdigit(line[begin + 1]) && isdigit(line[begin + 2]))
@@ -2243,8 +2796,11 @@ void CSmtp::ReceiveResponse(Command_Entry* pEntry)
 			}
 		}
 	}
-	snprintf(RecvBuf, BUFFER_SIZE, line.c_str());
-	OutputDebugStringA(RecvBuf);
+
+	strcpy_s(RecvBuf, BUFFER_SIZE, line.c_str());
+
+	line.clear();
+
 	if (reply_code != pEntry->valid_reply_code)
 	{
 		throw ECSmtp(pEntry->error);
@@ -2253,7 +2809,7 @@ void CSmtp::ReceiveResponse(Command_Entry* pEntry)
 
 void CSmtp::SendData_SSL(SSL* ssl, Command_Entry* pEntry)
 {
-	int offset = 0, res, nLeft = strlen(SendBuf);
+	int offset = 0, res, nLeft = static_cast<int>(strlen(SendBuf));
 	fd_set fdwrite;
 	fd_set fdread;
 	timeval time;
@@ -2280,7 +2836,7 @@ void CSmtp::SendData_SSL(SSL* ssl, Command_Entry* pEntry)
 			FD_SET(hSocket, &fdread);
 		}
 
-		if ((res = select(hSocket + 1, &fdread, &fdwrite, NULL, &time)) == SOCKET_ERROR)
+		if ((res = select(0, &fdread, &fdwrite, NULL, &time)) == SOCKET_ERROR)
 		{
 			FD_ZERO(&fdwrite);
 			FD_ZERO(&fdread);
@@ -2334,7 +2890,6 @@ void CSmtp::SendData_SSL(SSL* ssl, Command_Entry* pEntry)
 		}
 	}
 
-	OutputDebugStringA(SendBuf);
 	FD_ZERO(&fdwrite);
 	FD_ZERO(&fdread);
 }
@@ -2344,6 +2899,7 @@ void CSmtp::InitOpenSSL()
 	SSL_library_init();
 	SSL_load_error_strings();
 	m_ctx = SSL_CTX_new(SSLv23_client_method());
+
 	if (m_ctx == NULL)
 		throw ECSmtp(ECSmtp::SSL_PROBLEM);
 }
@@ -2352,9 +2908,12 @@ void CSmtp::OpenSSLConnect()
 {
 	if (m_ctx == NULL)
 		throw ECSmtp(ECSmtp::SSL_PROBLEM);
+
 	m_ssl = SSL_new(m_ctx);
+
 	if (m_ssl == NULL)
 		throw ECSmtp(ECSmtp::SSL_PROBLEM);
+
 	SSL_set_fd(m_ssl, (int)hSocket);
 	SSL_set_mode(m_ssl, SSL_MODE_AUTO_RETRY);
 
@@ -2375,6 +2934,7 @@ void CSmtp::OpenSSLConnect()
 
 		if (write_blocked)
 			FD_SET(hSocket, &fdwrite);
+
 		if (read_blocked)
 			FD_SET(hSocket, &fdread);
 
@@ -2382,12 +2942,14 @@ void CSmtp::OpenSSLConnect()
 		{
 			write_blocked = 0;
 			read_blocked = 0;
-			if ((res = select(hSocket + 1, &fdread, &fdwrite, NULL, &time)) == SOCKET_ERROR)
+
+			if ((res = select(0, &fdread, &fdwrite, NULL, &time)) == SOCKET_ERROR)
 			{
 				FD_ZERO(&fdwrite);
 				FD_ZERO(&fdread);
 				throw ECSmtp(ECSmtp::WSA_SELECT);
 			}
+
 			if (!res)
 			{
 				//timeout
@@ -2396,7 +2958,9 @@ void CSmtp::OpenSSLConnect()
 				throw ECSmtp(ECSmtp::SERVER_NOT_RESPONDING);
 			}
 		}
+
 		res = SSL_connect(m_ssl);
+
 		switch (SSL_get_error(m_ssl, res))
 		{
 		case SSL_ERROR_NONE:
@@ -2429,6 +2993,7 @@ void CSmtp::CleanupOpenSSL()
 		SSL_free(m_ssl);
 		m_ssl = NULL;
 	}
+
 	if (m_ctx != NULL)
 	{
 		SSL_CTX_free(m_ctx);
